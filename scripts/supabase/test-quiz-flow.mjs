@@ -53,7 +53,10 @@ try {
   sessionId = started.sessionId;
   if (started.bankSize < 500) throw new Error(`Active unique bank is too small: ${started.bankSize}`);
 
-  await callable("registerUser", visitorToken, { nickname: `QuizTest-${visitorId.slice(0, 8)}` });
+  await callable("registerUser", visitorToken, {
+    nickname: `QuizTest-${visitorId.slice(0, 8)}`,
+    email: `quiztest-${visitorId.slice(0, 8)}@test.unibyte.invalid`,
+  });
   const qr = await service.from("qr_codes").select("token").eq("type", "QUIZ").eq("active", true).limit(1).single();
   if (qr.error || !qr.data) throw qr.error ?? new Error("No active quiz QR");
   const joined = await callable("joinQuiz", visitorToken, { token: qr.data.token });

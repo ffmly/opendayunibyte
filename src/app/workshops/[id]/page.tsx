@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ExternalLink, MapPin, Sparkles, CheckCircle2 } from "lucide-react";
 import type { Workshop } from "@shared/models";
@@ -11,52 +11,91 @@ import { FullPageLoader } from "@/components/ui/feedback";
 import { call } from "@/lib/supabase/callable";
 import { BackButton } from "@/components/navigation/back-button";
 
-export default function WorkshopExperiencePage() {
+function WorkshopInner() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const rawId = params?.id;
+  const workshopId =
+    typeof rawId === "string"
+      ? decodeURIComponent(rawId)
+      : Array.isArray(rawId) && typeof rawId[0] === "string"
+        ? decodeURIComponent(rawId[0])
+        : null;
+
   const [workshop, setWorkshop] = useState<(Workshop & { id: string }) | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [loadedId, setLoadedId] = useState<string | null>(null);
 
   useEffect(() => {
-    call<{ id: string }, Workshop & { id: string }>("getWorkshop", { id: params.id })
-      .then(setWorkshop)
-      .catch(() => setWorkshop(null))
-      .finally(() => setLoading(false));
-  }, [params.id]);
+    if (!workshopId) return;
 
-  if (loading) return <FullPageLoader />;
+    let cancelled = false;
+
+    call<{ id: string }, Workshop & { id: string }>("getWorkshop", { id: workshopId })
+      .then((data) => {
+        if (!cancelled) {
+          setWorkshop(data);
+          setError(null);
+          setLoadedId(workshopId);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setWorkshop(null);
+          setError((err as Error)?.message ?? "Workshop not found.");
+          setLoadedId(workshopId);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workshopId]);
+
+  const loading = Boolean(workshopId && loadedId !== workshopId);
+
+  const attendance = searchParams.get("attendance");
 
   return (
     <UserShell>
       <div className="space-y-4">
-        <BackButton fallback="/workshops" />
+        <BackButton fallback="/activities" />
         <div className="rounded-2xl border border-primary/15 bg-white/90 p-4 shadow-lg shadow-primary/5 backdrop-blur">
           <div className="flex items-center gap-3 text-success">
             <CheckCircle2 className="h-6 w-6" />
             <div>
               <p className="font-extrabold">
-                {searchParams.get("attendance") === "existing" ? "Attendance already recorded" : "Attendance recorded"}
+                {attendance === "existing"
+                  ? "Attendance already recorded"
+                  : "Attendance recorded"}
               </p>
-              <p className="text-xs text-ink-soft">You are checked in for this workshop.</p>
+              <p className="text-xs text-ink-soft">
+                You are checked in for this workshop.
+              </p>
             </div>
           </div>
         </div>
 
-        {workshop ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        ) : workshop ? (
           <Card className="overflow-hidden border-primary/15 bg-white/92 shadow-xl shadow-primary/10">
             <div className="flex items-center gap-3 border-b border-line p-4">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-white">
                 <Sparkles className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">UniByte workshop</p>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
+                  UniByte workshop
+                </p>
                 <h1 className="text-xl font-extrabold text-ink">{workshop.title}</h1>
               </div>
             </div>
 
             {workshop.postImageUrl ? (
               <div className="flex justify-center bg-primary-tint/35 p-3 sm:p-5">
-                {/* Admin-provided URLs may use Cloudinary, Instagram or another CDN. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={workshop.postImageUrl}
@@ -81,10 +120,16 @@ export default function WorkshopExperiencePage() {
                 </p>
               )}
               <p className="whitespace-pre-wrap text-lg font-medium leading-8 text-ink sm:text-xl sm:leading-9">
-                {workshop.summary || "Welcome to this UniByte Open Day workshop. Your attendance has been saved successfully."}
+                {workshop.summary ||
+                  "Welcome to this UniByte Open Day workshop. Your attendance has been saved successfully."}
               </p>
               {workshop.contentUrl && (
-                <a href={workshop.contentUrl} target="_blank" rel="noreferrer" className="block">
+                <a
+                  href={workshop.contentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block"
+                >
                   <Button className="w-full">
                     Open activity content <ExternalLink className="h-4 w-4" />
                   </Button>
@@ -93,9 +138,19 @@ export default function WorkshopExperiencePage() {
             </div>
           </Card>
         ) : (
-          <Card className="card-pad text-center text-ink-soft">Workshop not found.</Card>
+          <Card className="card-pad text-center text-ink-soft">
+            {error || "Workshop not found."}
+          </Card>
         )}
       </div>
     </UserShell>
+  );
+}
+
+export default function WorkshopExperiencePage() {
+  return (
+    <Suspense fallback={<FullPageLoader />}>
+      <WorkshopInner />
+    </Suspense>
   );
 }

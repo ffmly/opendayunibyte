@@ -53,15 +53,23 @@ export async function signInAnon(): Promise<AuthResult> {
   return { user, registered: true };
 }
 
-export async function registerWithNickname(nickname: string): Promise<number> {
-  const parsed = registerUserSchema.safeParse({ nickname });
+export async function registerProfile(nickname: string, email: string): Promise<number> {
+  const parsed = registerUserSchema.safeParse({ nickname, email });
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "Invalid nickname");
+    throw new Error(parsed.error.issues[0]?.message ?? "Invalid profile data");
   }
-  const res = await call<{ nickname: string }, { points: number }>("registerUser", {
+  const res = await call<
+    { nickname: string; email: string },
+    { points: number; alreadyRegistered?: boolean }
+  >("registerUser", {
     nickname: parsed.data.nickname,
+    email: parsed.data.email,
   });
   return res.points;
+}
+
+export async function registerWithNickname(nickname: string, email = ""): Promise<number> {
+  return registerProfile(nickname, email);
 }
 
 export async function signOutUser(): Promise<void> {

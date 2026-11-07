@@ -8,6 +8,7 @@ import { Search, Plus, Minus, Ban, CheckCircle } from "lucide-react";
 interface UserRow {
   uid: string;
   nickname: string;
+  email: string | null;
   totalXP: number;
   status: "active" | "disabled";
 }
@@ -32,6 +33,7 @@ export default function AdminUsersPage() {
   const filtered = users.filter(
     (u) =>
       u.nickname?.toLowerCase().includes(search.toLowerCase()) ||
+      u.email?.toLowerCase().includes(search.toLowerCase()) ||
       u.uid?.toLowerCase().includes(search.toLowerCase()),
   );
 
@@ -62,7 +64,7 @@ export default function AdminUsersPage() {
     <div className="space-y-4">
       <header>
         <h1 className="text-2xl font-extrabold text-ink">Users</h1>
-        <p className="mt-0.5 text-sm text-ink-soft">Search, adjust XP, toggle activity.</p>
+        <p className="mt-0.5 text-sm text-ink-soft">Search, view emails, adjust XP, toggle activity.</p>
       </header>
 
       {message.ok && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-success">{message.ok}</p>}
@@ -72,17 +74,18 @@ export default function AdminUsersPage() {
         <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
         <input
           className="input ps-9"
-          placeholder="Search by name or ID…"
+          placeholder="Search by name, email, or ID…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="rounded-2xl border border-line bg-white">
+      <div className="overflow-x-auto rounded-2xl border border-line bg-white">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line text-start text-xs uppercase tracking-wide text-ink-soft">
               <th className="px-4 py-3 text-start font-semibold">Nickname</th>
+              <th className="px-4 py-3 text-start font-semibold">Email</th>
               <th className="px-4 py-3 text-start font-semibold">XP</th>
               <th className="px-4 py-3 text-start font-semibold">Status</th>
               <th className="px-4 py-3 text-end font-semibold">Actions</th>
@@ -93,6 +96,15 @@ export default function AdminUsersPage() {
               <tr key={u.uid}>
                 <td className="px-4 py-3 font-medium text-ink">
                   {u.nickname || u.uid.slice(0, 8)}
+                </td>
+                <td className="px-4 py-3 text-ink-soft">
+                  {u.email ? (
+                    <a href={`mailto:${u.email}`} className="text-primary hover:underline">
+                      {u.email}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-ink-soft/70">No email provided</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 font-bold text-primary">{formatNumber(u.totalXP)}</td>
                 <td className="px-4 py-3">
@@ -143,7 +155,7 @@ export default function AdminUsersPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-ink-soft">
+                <td colSpan={5} className="px-4 py-8 text-center text-ink-soft">
                   No users found
                 </td>
               </tr>

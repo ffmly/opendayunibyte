@@ -42,9 +42,13 @@ export const en = {
     subtitle: "Create your player profile — it takes seconds.",
     nickname: "Nickname",
     nicknamePlaceholder: "e.g. Ahmed",
+    email: "Email address",
+    emailPlaceholder: "e.g. name@example.com",
+    emailNotice: "We will only use this email to contact winners and deliver rewards.",
+    deviceNotice: "Your account will remain saved on this browser.",
     continue: "Continue",
     signIn: "Join the event",
-    legal: "No email or password needed. Your progress is saved on this device.",
+    legal: "Your profile and progress are saved in this browser.",
   },
   leaderboard: {
     title: "Leaderboard",
@@ -87,6 +91,7 @@ export const en = {
     sessionExpired: "Your session expired. Please sign in again.",
     generic: "Something went wrong. Please try again.",
     nicknameTaken: "This nickname is already taken.",
+    emailTaken: "This email address is already registered.",
   },
   common: {
     loading: "Loading…",

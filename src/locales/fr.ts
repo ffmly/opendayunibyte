@@ -45,9 +45,13 @@ export const fr: MessageDict = {
     subtitle: "Créez votre profil de joueur — cela prend quelques secondes.",
     nickname: "Pseudo",
     nicknamePlaceholder: "ex. Ahmed",
+    email: "Adresse e-mail",
+    emailPlaceholder: "ex. nom@exemple.com",
+    emailNotice: "Nous utiliserons cet e-mail uniquement pour contacter les gagnants et livrer les récompenses.",
+    deviceNotice: "Votre compte restera enregistré sur ce navigateur.",
     continue: "Continuer",
     signIn: "Rejoindre l'événement",
-    legal: "Pas d'e-mail ni de mot de passe. Votre progression est enregistrée sur cet appareil.",
+    legal: "Votre profil et vos progrès sont enregistrés dans ce navigateur.",
   },
   leaderboard: {
     title: "Classement",
@@ -90,6 +94,7 @@ export const fr: MessageDict = {
     sessionExpired: "Votre session a expiré. Reconnectez-vous.",
     generic: "Une erreur est survenue. Réessayez.",
     nicknameTaken: "Ce pseudo est déjà pris.",
+    emailTaken: "Cette adresse e-mail est déjà enregistrée.",
   },
   common: {
     loading: "Chargement…",

@@ -14,7 +14,9 @@ import {
   adminCreateWorkshopSchema,
   adminSetRoleSchema,
   adminUpdateRewardsSchema,
+  adminCleanupParticipantsSchema,
 } from "@shared/schemas";
+import { getSqlPool, getAdminClient } from "./supabase-db";
 import { createQrCode, getRewards } from "./qr";
 import {
   QUESTION_DURATION_SEC,
@@ -308,4 +310,129 @@ export async function adminUpdateRewards(data: unknown, context: Ctx) {
   const input = validate(adminUpdateRewardsSchema, data);
   await db.collection("settings").doc("rewards").set(input.rewards, { merge: true });
   return { ok: true };
+}
+
+/**
+ * adminCleanupParticipants — safely delete all non-admin test accounts,
+ * their activity, and auth entries while preserving all admin/staff accounts,
+ * questions, workshops, QR codes, and event configurations.
+ */
+export async function adminCleanupParticipants(data: unknown, context: Ctx) {
+  const currentAdminUid = requireAuth(context);
+  requireAdmin(context);
+  validate(adminCleanupParticipantsSchema, data);
+
+  const pool = getSqlPool();
+  const supabase = getAdminClient();
+
+  // 1. Identify all admin and staff IDs to preserve
+  const adminRows = await pool.query(`select user_id from public.admin_roles`);
+  const preservedUids = new Set<string>(adminRows.rows.map((r) => r.user_id));
+  preservedUids.add(currentAdminUid);
+  const preservedArray = Array.from(preservedUids);
+
+  // 2. Identify all participant profiles to delete
+  const participantProfiles = await pool.query(
+    `select id from public.profiles where not (id = any($1::text[]))`,
+    [preservedArray],
+  );
+  const participantUidsToDelete = participantProfiles.rows.map((r) => r.id);
+
+  // 3. Delete participant database records in a single transaction
+  const client = await pool.connect();
+  let deletedProfilesCount = 0;
+  try {
+    await client.query("begin");
+
+    await client.query(
+      `delete from public.quiz_answers where not (user_id = any($1::text[]))`,
+      [preservedArray],
+    );
+    await client.query(
+      `delete from public.quiz_participants where not (user_id = any($1::text[]))`,
+      [preservedArray],
+    );
+    await client.query(
+      `delete from public.workshop_checkins where not (user_id = any($1::text[]))`,
+      [preservedArray],
+    );
+    await client.query(
+      `delete from public.cat_finds where not (user_id = any($1::text[]))`,
+      [preservedArray],
+    );
+    await client.query(
+      `delete from public.game_scores where not (user_id = any($1::text[]))`,
+      [preservedArray],
+    );
+    await client.query(
+      `delete from public.password_attempts where not (user_id = any($1::text[]))`,
+      [preservedArray],
+    );
+    await client.query(
+      `delete from public.mystery_attempts where not (user_id = any($1::text[]))`,
+      [preservedArray],
+    );
+    await client.query(
+      `delete from public.challenge_claims where not (user_id = any($1::text[]))`,
+      [preservedArray],
+    );
+    await client.query(
+      `delete from public.xp_events where not (user_id = any($1::text[]))`,
+      [preservedArray],
+    );
+    await client.query(
+      `delete from public.leaderboard where not (user_id = any($1::text[]))`,
+      [preservedArray],
+    );
+
+    const deleteProfilesResult = await client.query(
+      `delete from public.profiles where not (id = any($1::text[]))`,
+      [preservedArray],
+    );
+    deletedProfilesCount = deleteProfilesResult.rowCount ?? 0;
+
+    await client.query("commit");
+  } catch (err) {
+    await client.query("rollback");
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  // 4. Delete Supabase Auth users for participants
+  let deletedAuthUsersCount = 0;
+  const authUsersToDelete = new Set<string>(participantUidsToDelete);
+
+  try {
+    const listRes = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (listRes.data?.users) {
+      for (const u of listRes.data.users) {
+        const role = u.app_metadata?.role;
+        if (!preservedUids.has(u.id) && role !== "admin" && role !== "staff") {
+          authUsersToDelete.add(u.id);
+        }
+      }
+    }
+  } catch {
+    // Proceed with known participant profile auth users if listUsers fails
+  }
+
+  for (const uid of authUsersToDelete) {
+    if (preservedUids.has(uid)) continue;
+    try {
+      const res = await supabase.auth.admin.deleteUser(uid);
+      if (!res.error) {
+        deletedAuthUsersCount++;
+      }
+    } catch {
+      // Continue on individual failure
+    }
+  }
+
+  return {
+    ok: true,
+    deletedProfiles: deletedProfilesCount,
+    deletedAuthUsers: deletedAuthUsersCount,
+    preservedAdmins: preservedUids.size,
+  };
 }

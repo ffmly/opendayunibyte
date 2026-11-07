@@ -14,15 +14,27 @@ import { getSqlPool } from "./supabase-db";
  */
 export async function registerUser(data: unknown, context: Ctx) {
   const uid = requireAuth(context);
-  const { nickname } = validate(registerUserSchema, data);
+  const { nickname, email } = validate(registerUserSchema, data);
 
   const nicknameTrimmed = nickname.trim();
-  const result = await getSqlPool().query(
-    `select already_registered as "alreadyRegistered", points
-       from public.register_attendee($1, $2)`,
-    [uid, nicknameTrimmed],
-  );
-  return result.rows[0] ?? { points: 0, alreadyRegistered: true };
+  const emailNormalized = email.trim().toLowerCase();
+  try {
+    const result = await getSqlPool().query(
+      `select already_registered as "alreadyRegistered", points
+         from public.register_attendee($1, $2, $3)`,
+      [uid, nicknameTrimmed, emailNormalized],
+    );
+    return result.rows[0] ?? { points: 0, alreadyRegistered: true };
+  } catch (err: unknown) {
+    const message = (err as Error)?.message ?? "";
+    if (message.includes("email-already-used")) {
+      throw new ApiError("already-exists", "This email address is already registered.");
+    }
+    if (message.includes("invalid-email")) {
+      throw new ApiError("invalid-argument", "A valid email address is required.");
+    }
+    throw err;
+  }
 }
 
 export async function getMyProfile(_data: unknown, context: Ctx) {

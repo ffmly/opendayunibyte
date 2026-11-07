@@ -23,6 +23,7 @@ export interface UserProfile {
   createdAt: TimestampLike;
   lastActiveAt: TimestampLike;
   status: UserStatus;
+  email: string | null;
 }
 
 export interface Activity {
@@ -232,6 +233,36 @@ export interface LeaderboardEntry {
   totalXP: number;
   nickname: string;
   updatedAt: TimestampLike;
+}
+
+export interface AdminQuizLeaderboardEntry {
+  userId: string;
+  nickname: string;
+  email: string | null;
+  quizPoints: number;
+  correctAnswers: number;
+  roundsJoined: number;
+}
+
+export interface AdminAllTimeLeaderboardEntry {
+  userId: string;
+  nickname: string;
+  email: string | null;
+  totalXP: number;
+}
+
+export interface AdminWorkshopLeaderboardEntry {
+  userId: string;
+  nickname: string;
+  email: string | null;
+  workshopsVisited: number;
+  workshopPoints: number;
+}
+
+export interface AdminLeaderboardsResult {
+  quiz: AdminQuizLeaderboardEntry[];
+  allTime: AdminAllTimeLeaderboardEntry[];
+  workshops: AdminWorkshopLeaderboardEntry[];
 }
 
 export interface EventSettings {

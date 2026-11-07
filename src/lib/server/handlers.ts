@@ -59,6 +59,8 @@ const registry: Record<string, Handler> = {
   adminListWorkshops: reads.adminListWorkshops,
   adminGetSettings: reads.adminGetSettings,
   adminQuizState: reads.adminQuizState,
+  adminLeaderboards: reads.adminLeaderboards,
+  adminCleanupParticipants: admin.adminCleanupParticipants,
 };
 
 function json(data: unknown, status: number): Response {

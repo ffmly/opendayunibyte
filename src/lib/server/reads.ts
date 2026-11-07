@@ -152,10 +152,90 @@ export async function adminListQrs(_data: unknown, context: Ctx) {
 export async function adminListUsers(_data: unknown, context: Ctx) {
   requireAdmin(context);
   const result = await getSqlPool().query(
-    `select id as uid, nickname, total_xp as "totalXP", status, created_at as "createdAt", last_active_at as "lastActiveAt", legacy_firebase as "legacyFirebase"
+    `select id as uid, nickname, email, total_xp as "totalXP", status, created_at as "createdAt", last_active_at as "lastActiveAt", legacy_firebase as "legacyFirebase"
        from public.profiles order by total_xp desc, created_at asc limit 500`,
   );
   return { users: result.rows };
+}
+
+export async function adminLeaderboards(_data: unknown, context: Ctx) {
+  requireAdmin(context);
+  const pool = getSqlPool();
+
+  const [quizRes, allTimeRes, workshopsRes] = await Promise.all([
+    pool.query(`
+      with ans as (
+        select
+          user_id,
+          coalesce(sum(points), 0)::int as quiz_points,
+          count(case when correct then 1 end)::int as correct_answers,
+          count(distinct session_id || ':' || round_number::text)::int as answered_rounds
+        from public.quiz_answers
+        group by user_id
+      ),
+      part as (
+        select
+          user_id,
+          coalesce(sum(points), 0)::int as part_points,
+          count(distinct session_id || ':' || coalesce(round_number::text, '0'))::int as joined_rounds
+        from public.quiz_participants
+        group by user_id
+      )
+      select
+        p.id as "userId",
+        p.nickname,
+        p.email,
+        greatest(coalesce(ans.quiz_points, 0), coalesce(part.part_points, 0))::int as "quizPoints",
+        coalesce(ans.correct_answers, 0)::int as "correctAnswers",
+        greatest(coalesce(part.joined_rounds, 0), coalesce(ans.answered_rounds, 0))::int as "roundsJoined"
+      from public.profiles p
+      left join ans on ans.user_id = p.id
+      left join part on part.user_id = p.id
+      where (ans.quiz_points is not null and ans.quiz_points > 0)
+         or (part.part_points is not null and part.part_points > 0)
+         or (ans.correct_answers is not null and ans.correct_answers > 0)
+         or (part.joined_rounds is not null and part.joined_rounds > 0)
+      order by "quizPoints" desc, "correctAnswers" desc, "roundsJoined" desc, p.nickname asc, p.id asc
+      limit 200
+    `),
+    pool.query(`
+      select
+        p.id as "userId",
+        p.nickname,
+        p.email,
+        coalesce(l.total_xp, p.total_xp, 0)::int as "totalXP"
+      from public.profiles p
+      left join public.leaderboard l on l.user_id = p.id
+      order by "totalXP" desc, coalesce(l.updated_at, p.last_active_at) asc, p.id asc
+      limit 200
+    `),
+    pool.query(`
+      with ws as (
+        select
+          wc.user_id,
+          count(distinct wc.workshop_id)::int as workshops_visited,
+          coalesce(sum(wc.points), 0)::int as workshop_points
+        from public.workshop_checkins wc
+        group by wc.user_id
+      )
+      select
+        p.id as "userId",
+        p.nickname,
+        p.email,
+        coalesce(ws.workshops_visited, 0)::int as "workshopsVisited",
+        coalesce(ws.workshop_points, 0)::int as "workshopPoints"
+      from ws
+      join public.profiles p on p.id = ws.user_id
+      order by "workshopsVisited" desc, "workshopPoints" desc, p.nickname asc, p.id asc
+      limit 200
+    `),
+  ]);
+
+  return {
+    quiz: quizRes.rows,
+    allTime: allTimeRes.rows,
+    workshops: workshopsRes.rows,
+  };
 }
 
 export async function adminListWorkshops(_data: unknown, context: Ctx) {

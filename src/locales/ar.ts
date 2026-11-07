@@ -44,9 +44,13 @@ export const ar: MessageDict = {
     subtitle: "أنشئ ملفك الشخصي — يستغرق ثوانٍ فقط.",
     nickname: "الاسم المستعار",
     nicknamePlaceholder: "مثال: أحمد",
+    email: "البريد الإلكتروني",
+    emailPlaceholder: "name@example.com :مثال",
+    emailNotice: "سنستخدم هذا البريد فقط للتواصل مع الفائزين وتسليم الجوائز.",
+    deviceNotice: "سيظل حسابك محفوظًا على هذا المتصفح.",
     continue: "متابعة",
     signIn: "انضم إلى الحدث",
-    legal: "لا حاجة لبريد إلكتروني أو كلمة مرور. يُحفظ تقدمك على هذا الجهاز.",
+    legal: "يُحفظ ملفك الشخصي وتقدمك على هذا المتصفح.",
   },
   leaderboard: {
     title: "المتصدرين",
@@ -88,6 +92,7 @@ export const ar: MessageDict = {
     sessionExpired: "انتهت جلستك. يرجى تسجيل الدخول مجددًا.",
     generic: "حدث خطأ ما. حاول مرة أخرى.",
     nicknameTaken: "هذا الاسم مستخدم بالفعل.",
+    emailTaken: "هذا البريد الإلكتروني مسجل بالفعل.",
   },
   common: {
     loading: "جارٍ التحميل…",

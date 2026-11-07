@@ -7,15 +7,17 @@ import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/providers/i18n-provider";
 import { useAuth } from "@/components/providers/auth-provider";
-import { signInAnon, registerWithNickname } from "@/lib/auth/auth";
+import { signInAnon, registerProfile } from "@/lib/auth/auth";
 import { CallableError } from "@/lib/supabase/callable";
 
 function JoinInner() {
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, hasProfile, refreshProfile } = useAuth();
-  const [nickname, setNickname] = useState("");
+  const { user, profile, refreshProfile } = useAuth();
+  const [customNickname, setCustomNickname] = useState<string | null>(null);
+  const nickname = customNickname !== null ? customNickname : (profile?.nickname ?? "");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const startedRef = useRef(false);
@@ -24,13 +26,13 @@ function JoinInner() {
     ? `/scan?token=${encodeURIComponent(token)}`
     : "/dashboard";
 
+  // Already completely registered (both nickname and email present) → proceed to destination
   useEffect(() => {
-    // Already registered → go straight to the main website
-    if (!startedRef.current && user && hasProfile) {
+    if (!startedRef.current && user && profile && profile.email) {
       startedRef.current = true;
       router.replace(destination);
     }
-  }, [user, hasProfile, router, destination]);
+  }, [user, profile, router, destination]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,23 +40,27 @@ function JoinInner() {
     setError(null);
     setBusy(true);
     try {
-      const { user: u } = await signInAnon();
-      void u;
-      // Create the user profile + registration XP reward
-      await registerWithNickname(nickname);
-      // The profile doc was just created server-side; make the auth context
-      // see it before navigating, otherwise the dashboard guard bounces back.
+      // Ensure we have a persistent Supabase session in this browser
+      await signInAnon();
+      // Register new profile or complete existing profile without email
+      await registerProfile(nickname, email);
+      // Ensure the auth context gets the updated profile before navigation
       await refreshProfile();
-      // A QR opened from the phone camera continues to its activity after the
-      // one-time name step. Normal registrations still go to the dashboard.
+      // Forward to original destination or dashboard
       router.replace(destination);
     } catch (err) {
       setBusy(false);
-      if (err instanceof CallableError && err.code.includes("nickname")) {
-        setError(t.errors.nicknameTaken);
-      } else {
-        setError(t.errors.generic);
+      if (err instanceof CallableError) {
+        if (err.code === "already-exists" || err.message?.toLowerCase().includes("email")) {
+          setError(t.errors.emailTaken);
+          return;
+        }
+        if (err.code.includes("nickname")) {
+          setError(t.errors.nicknameTaken);
+          return;
+        }
       }
+      setError((err as Error).message || t.errors.generic);
     }
   }
 
@@ -66,38 +72,63 @@ function JoinInner() {
           <h1 className="mt-5 text-center text-2xl font-extrabold text-ink">{t.join.title}</h1>
           <p className="mt-1.5 text-center text-sm text-ink-soft">{t.join.subtitle}</p>
 
-        <form
-          onSubmit={handleSubmit}
-          className="mx-auto mt-8 w-full max-w-sm space-y-4"
-        >
-          <div>
-            <label htmlFor="nickname" className="label">
-              {t.join.nickname}
-            </label>
-            <input
-              id="nickname"
-              type="text"
-              required
-              maxLength={24}
-              autoComplete="nickname"
-              placeholder={t.join.nicknamePlaceholder}
-              className="input"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              dir="auto"
-            />
-          </div>
+          <form
+            onSubmit={handleSubmit}
+            className="mx-auto mt-8 w-full max-w-sm space-y-4"
+          >
+            <div>
+              <label htmlFor="nickname" className="label">
+                {t.join.nickname}
+              </label>
+              <input
+                id="nickname"
+                type="text"
+                required
+                maxLength={24}
+                autoComplete="nickname"
+                placeholder={t.join.nicknamePlaceholder}
+                className="input"
+                value={nickname}
+                onChange={(e) => setCustomNickname(e.target.value)}
+                dir="auto"
+              />
+            </div>
 
-          {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">
-              {error}
+            <div>
+              <label htmlFor="email" className="label">
+                {t.join.email}
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                maxLength={254}
+                autoComplete="email"
+                placeholder={t.join.emailPlaceholder}
+                className="input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                dir="ltr"
+              />
+              <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
+                {t.join.emailNotice}
+              </p>
+            </div>
+
+            <p className="rounded-xl border border-primary/10 bg-primary-tint/40 px-3 py-2 text-xs leading-relaxed text-primary">
+              {t.join.deviceNotice}
             </p>
-          )}
 
-          <Button type="submit" size="lg" className="w-full" loading={busy}>
-            {busy ? t.common.loading : t.join.continue}
-          </Button>
-        </form>
+            {error && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">
+                {error}
+              </p>
+            )}
+
+            <Button type="submit" size="lg" className="w-full" loading={busy}>
+              {busy ? t.common.loading : t.join.continue}
+            </Button>
+          </form>
 
           <p className="mx-auto mt-6 max-w-xs text-center text-xs leading-relaxed text-ink-soft">{t.join.legal}</p>
         </div>

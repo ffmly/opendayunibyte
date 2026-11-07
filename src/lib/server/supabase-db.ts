@@ -339,7 +339,7 @@ export const db = {
   },
 };
 
-function getAdminClient() {
+export function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const secret = process.env.SUPABASE_SECRET_KEY;
   if (!url || !secret) throw new Error("Supabase server environment is incomplete");

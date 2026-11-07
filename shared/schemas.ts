@@ -8,6 +8,13 @@ export const nicknameSchema = z
   .max(24, "Nickname must be at most 24 characters")
   .regex(/^[\p{L}\p{N} _-]+$/u, "Only letters, numbers, spaces and - _ allowed");
 
+export const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email("Please enter a valid email address")
+  .max(254, "Email must be at most 254 characters");
+
 export const tokenSchema = z.string().trim().min(8).max(64);
 
 export const qrTypeSchema = z.enum([
@@ -26,6 +33,11 @@ export const gameKeySchema = z.enum(["QUIZ", "MEMORY", "PASSWORD", "MYSTERY"]);
 
 export const registerUserSchema = z.object({
   nickname: nicknameSchema,
+  email: emailSchema,
+});
+
+export const adminCleanupParticipantsSchema = z.object({
+  confirmation: z.literal("DELETE PARTICIPANTS"),
 });
 
 export const processQrSchema = z.object({

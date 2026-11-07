@@ -37,6 +37,7 @@ function ScanInner() {
   const [manualToken, setManualToken] = useState("");
   const [message, setMessage] = useState("");
   const processingRef = useRef(false);
+  const processedTokenRef = useRef<string | null>(null);
 
   const errorMessage = useCallback((err: unknown): string => {
     if (err instanceof CallableError) {
@@ -60,7 +61,7 @@ function ScanInner() {
       case "WORKSHOP": {
         try {
           const r = await checkInWorkshop(token);
-          router.push(
+          router.replace(
             `/workshops/${encodeURIComponent(r.workshopId)}?attendance=${r.alreadyCheckedIn ? "existing" : "recorded"}`,
           );
         } catch (err) {
@@ -72,7 +73,7 @@ function ScanInner() {
       case "QUIZ": {
         try {
           const r = await joinQuiz(token);
-          router.push(`/quiz?session=${encodeURIComponent(r.sessionId)}`);
+          router.replace(`/quiz?session=${encodeURIComponent(r.sessionId)}`);
         } catch (err) {
           setStage("error");
           setMessage(errorMessage(err));
@@ -118,10 +119,14 @@ function ScanInner() {
   // Pre-fill from ?token= (e.g. shared links)
   useEffect(() => {
     const token = searchParams.get("token");
-    if (token && !user && loading === false) {
+    if (!token) return;
+    if (!user && loading === false) {
       router.replace("/join?token=" + encodeURIComponent(token) + "&from=scan");
-    } else if (token && user && hasProfile) {
-      queueMicrotask(() => void handleToken(token));
+    } else if (token && user && hasProfile && !loading) {
+      if (processedTokenRef.current !== token) {
+        processedTokenRef.current = token;
+        queueMicrotask(() => void handleToken(token));
+      }
     }
   }, [searchParams, user, hasProfile, loading, handleToken, router]);
 

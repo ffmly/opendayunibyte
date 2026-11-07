@@ -7,21 +7,22 @@ import { FullPageLoader } from "@/components/ui/feedback";
 import { AppHeader, BottomNav } from "./app-nav";
 
 /**
- * Layout for the visitor app. Requires a signed-in user with a user profile.
- * Guards both redirect and "no profile" states.
+ * Layout for the visitor app. Requires a signed-in user with a complete profile (including email).
+ * Guards redirect for missing profile or missing email states.
  */
 export function UserShell({ children }: { children: React.ReactNode }) {
-  const { user, hasProfile, loading } = useAuth();
+  const { user, profile, hasProfile, loading } = useAuth();
   const router = useRouter();
 
+  const isProfileComplete = Boolean(user && hasProfile && profile?.email);
+
   useEffect(() => {
-    if (!loading && (!user || !hasProfile)) {
+    if (!loading && !isProfileComplete) {
       router.replace("/join");
     }
-  }, [user, hasProfile, loading, router]);
+  }, [loading, isProfileComplete, router]);
 
-  if (loading) return <FullPageLoader />;
-  if (!user || !hasProfile) return <FullPageLoader />;
+  if (loading || !isProfileComplete) return <FullPageLoader />;
 
   return (
     <div className="open-day-bg flex min-h-dvh flex-col">
