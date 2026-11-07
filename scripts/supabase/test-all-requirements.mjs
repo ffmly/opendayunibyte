@@ -206,8 +206,39 @@ async function runTests() {
   assert(wsEntry.workshopsVisited >= 1, `Workshops visited count >= 1 (${wsEntry.workshopsVisited})`);
   assert(wsEntry.workshopPoints > 0, `Workshop points awarded (${wsEntry.workshopPoints})`);
 
-  // 12. Admin cleanup test
-  console.log("\n--- Test 12: Admin cleanup of test participant accounts ---");
+  // 12. Account recovery: entering same nickname and email restores existing session & XP
+  console.log("\n--- Test 12: Account recovery with same nickname and email ---");
+  const vRecover = await createVisitor();
+  const recCall = await apiCall("registerUser", vRecover.token, {
+    nickname: `User-${runId}`,
+    email: email1,
+  });
+  assert(recCall.ok, `Recovery request succeeded with status 200`);
+  assert(recCall.data.recovered === true, `Marked as recovered`);
+  assert(recCall.data.userId === v1.uid, `Restored the exact user ID: ${recCall.data.userId}`);
+  assert(Boolean(recCall.data.authEmail && recCall.data.recoveryPassword), `Returned recovery credentials`);
+
+  // Sign into the recovered account
+  const recoverClient = createClient(url, publishable, { auth: { persistSession: false, autoRefreshToken: false } });
+  const restoredSession = await recoverClient.auth.signInWithPassword({
+    email: recCall.data.authEmail,
+    password: recCall.data.recoveryPassword,
+  });
+  assert(!restoredSession.error && restoredSession.data.user.id === v1.uid, `Restored client session ID matches original user`);
+  const recoveredProfile = await apiCall("getMyProfile", restoredSession.data.session.access_token);
+  assert(recoveredProfile.ok && recoveredProfile.data.id === v1.uid, `Recovered profile data matches original user`);
+  assert(recoveredProfile.data.nickname === `User-${runId}`, `Nickname matches original: ${recoveredProfile.data.nickname}`);
+  assert(recoveredProfile.data.email === email1, `Email matches original: ${recoveredProfile.data.email}`);
+
+  // 13. Quiz display join code: active QR code is returned with full public URL
+  console.log("\n--- Test 13: Big screen Quiz join code API ---");
+  const quizJoin = await apiCall("getQuizJoinCode", null, {});
+  assert(quizJoin.ok, `getQuizJoinCode succeeded with status 200`);
+  assert(Boolean(quizJoin.data.token && quizJoin.data.token.length > 5), `Returned active token: ${quizJoin.data.token}`);
+  assert(Boolean(quizJoin.data.payload && quizJoin.data.payload.includes("/scan?token=")), `Returned payload with scan path: ${quizJoin.data.payload}`);
+
+  // 14. Admin cleanup test
+  console.log("\n--- Test 14: Admin cleanup of test participant accounts ---");
   // Before counts
   const beforeProfiles = await pgPool.query(`select count(*)::int as count from public.profiles`);
   assert(beforeProfiles.rows[0].count >= 0, `Initial profiles counted: ${beforeProfiles.rows[0].count}`);

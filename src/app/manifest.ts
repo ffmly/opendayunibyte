@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "UniByte",
     description:
       "UniByte Open Day — scan, play and earn XP across the university event.",
-    start_url: "/dashboard",
+    start_url: "/",
     display: "standalone",
     orientation: "portrait",
     background_color: "#ffffff",

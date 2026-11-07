@@ -53,23 +53,53 @@ export async function signInAnon(): Promise<AuthResult> {
   return { user, registered: true };
 }
 
-export async function registerProfile(nickname: string, email: string): Promise<number> {
+export interface RegisterResult {
+  points: number;
+  alreadyRegistered?: boolean;
+  recovered?: boolean;
+}
+
+export async function registerProfile(
+  nickname: string,
+  email: string,
+): Promise<RegisterResult> {
   const parsed = registerUserSchema.safeParse({ nickname, email });
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? "Invalid profile data");
   }
   const res = await call<
     { nickname: string; email: string },
-    { points: number; alreadyRegistered?: boolean }
+    {
+      points: number;
+      alreadyRegistered?: boolean;
+      recovered?: boolean;
+      authEmail?: string;
+      recoveryPassword?: string;
+    }
   >("registerUser", {
     nickname: parsed.data.nickname,
     email: parsed.data.email,
   });
-  return res.points;
+
+  if (res.recovered && res.authEmail && res.recoveryPassword) {
+    const supabase = getSupabaseBrowser();
+    const signedIn = await supabase.auth.signInWithPassword({
+      email: res.authEmail,
+      password: res.recoveryPassword,
+    });
+    if (signedIn.error) throw signedIn.error;
+  }
+
+  return {
+    points: res.points,
+    alreadyRegistered: res.alreadyRegistered,
+    recovered: res.recovered,
+  };
 }
 
 export async function registerWithNickname(nickname: string, email = ""): Promise<number> {
-  return registerProfile(nickname, email);
+  const res = await registerProfile(nickname, email);
+  return res.points;
 }
 
 export async function signOutUser(): Promise<void> {

@@ -32,10 +32,23 @@ export const metadata: Metadata = {
   description:
     "UniByte Open Day — scan, play and earn XP across the university event.",
   applicationName: "UniByte Open Day",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "192x192", type: "image/png" },
+    ],
+  },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "UniByte Open Day",
+  },
+  formatDetection: {
+    telephone: false,
   },
 };
 

@@ -43,9 +43,26 @@ export default function QuizScreen() {
   }, []);
 
   useEffect(() => {
-    call<undefined, { payload: string }>("getQuizJoinCode")
-      .then((result) => setJoinPayload(result.payload))
-      .catch(() => setJoinPayload(""));
+    let cancelled = false;
+    const loadJoinCode = async () => {
+      try {
+        const result = await call<undefined, { payload: string; token: string }>("getQuizJoinCode");
+        if (cancelled || !result?.payload) return;
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const full = result.payload.startsWith("http")
+          ? result.payload
+          : `${origin}${result.payload.startsWith("/") ? "" : "/"}${result.payload}`;
+        setJoinPayload(full);
+      } catch {
+        // Keep previous valid payload if any; only set empty if nothing yet
+      }
+    };
+    void loadJoinCode();
+    const timer = window.setInterval(loadJoinCode, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   const clock = useMemo(() => (session ? getQuizClock(session, now) : null), [session, now]);

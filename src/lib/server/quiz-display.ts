@@ -1,4 +1,5 @@
 import { db, validate, apiError } from "./common";
+import { getSqlPool } from "./supabase-db";
 import { z } from "zod";
 import { buildPublicQrUrl } from "@/lib/qr/parse";
 
@@ -25,9 +26,17 @@ export async function getQuizDisplayQuestion(data: unknown) {
 
 /** Public only because this exact code is displayed on the projector. */
 export async function getQuizJoinCode() {
-  const snap = await db.collection("qrCodes").where("type", "==", "QUIZ").get();
-  const qr = snap.docs.map((d) => d.data()).find((item) => item?.active === true);
-  if (!qr?.token) apiError("not-found", "No active quiz QR is configured.");
-  const token = String(qr.token);
-  return { token, payload: buildPublicQrUrl(token) };
+  const sql = await getSqlPool().query<{ token: string }>(
+    `select token from public.qr_codes where type = 'QUIZ' and active = true limit 1`,
+  );
+  let token: string | undefined = sql.rows[0]?.token;
+  if (!token) {
+    const snap = await db.collection("qrCodes").where("type", "==", "QUIZ").get();
+    const activeDoc = snap.docs.find((d) => d.data()?.active === true);
+    token = activeDoc?.id || (activeDoc?.data() as { token?: string } | undefined)?.token;
+  }
+  if (!token) apiError("not-found", "No active quiz QR is configured.");
+  const tokenStr = String(token);
+  return { token: tokenStr, payload: buildPublicQrUrl(tokenStr) };
 }
+

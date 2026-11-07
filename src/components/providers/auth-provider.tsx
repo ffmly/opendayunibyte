@@ -20,7 +20,7 @@ interface AuthContextValue {
   hasProfile: boolean;
   isAdmin: boolean;
   isStaff: boolean;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<UserProfile | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -31,39 +31,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [adminRole, setAdminRole] = useState<"admin" | "staff" | null>(null);
 
+  const sync = async (forcedUser?: User | null): Promise<UserProfile | null> => {
+    const supabase = getSupabaseBrowser();
+    let currentUser = forcedUser;
+    if (currentUser === undefined) {
+      const { data } = await supabase.auth.getUser();
+      currentUser = data.user;
+    }
+    setUser(currentUser);
+    if (currentUser) {
+      const role = (currentUser.app_metadata?.role as "admin" | "staff") ?? null;
+      setAdminRole(role);
+      try {
+        const result = await call<unknown, UserProfile>("getMyProfile");
+        setProfile(result);
+        setLoading(false);
+        return result;
+      } catch {
+        setProfile(null);
+        setLoading(false);
+        return null;
+      }
+    } else {
+      setProfile(null);
+      setAdminRole(null);
+      setLoading(false);
+      return null;
+    }
+  };
+
   useEffect(() => {
     const supabase = getSupabaseBrowser();
-    const sync = async (u: User | null) => {
-      setUser(u);
-      if (u) {
-        const role = (u.app_metadata?.role as "admin" | "staff") ?? null;
-        setAdminRole(role);
-        await loadProfile();
-      } else {
-        setProfile(null);
-        setAdminRole(null);
-      }
-      setLoading(false);
-    };
     void supabase.auth.getUser().then(({ data }) => sync(data.user));
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => { void sync(session?.user ?? null); });
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      void sync(session?.user ?? null);
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
-  async function loadProfile() {
-    try {
-      const result = await call<unknown, UserProfile>("getMyProfile");
-      setProfile(result);
-    } catch {
-      setProfile(null);
-    }
-  }
-
   const refreshProfile = useMemo(
     () => async () => {
-      if (user) await loadProfile();
+      return await sync();
     },
-    [user],
+    [],
   );
 
   const value = useMemo<AuthContextValue>(

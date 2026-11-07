@@ -11,7 +11,7 @@ import { signInAnon, registerProfile } from "@/lib/auth/auth";
 import { CallableError } from "@/lib/supabase/callable";
 
 function JoinInner() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, profile, refreshProfile } = useAuth();
@@ -42,15 +42,29 @@ function JoinInner() {
     try {
       // Ensure we have a persistent Supabase session in this browser
       await signInAnon();
-      // Register new profile or complete existing profile without email
+      // Register new profile or recover existing account with matching nickname + email
       await registerProfile(nickname, email);
       // Ensure the auth context gets the updated profile before navigation
-      await refreshProfile();
-      // Forward to original destination or dashboard
-      router.replace(destination);
+      const synced = await refreshProfile();
+      startedRef.current = true;
+      if (synced && synced.email) {
+        router.replace(destination);
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        await refreshProfile();
+        router.replace(destination);
+      }
     } catch (err) {
       setBusy(false);
       if (err instanceof CallableError) {
+        if (err.message && err.message.includes("different nickname")) {
+          setError(
+            locale === "ar"
+              ? "هذا البريد الإلكتروني مسجل باسم مستعار آخر. يرجى إدخال نفس الاسم المستعار الذي سجلت به سابقاً."
+              : "This email is registered under a different nickname. Please enter the same nickname you originally registered with.",
+          );
+          return;
+        }
         if (err.code === "already-exists" || err.message?.toLowerCase().includes("email")) {
           setError(t.errors.emailTaken);
           return;

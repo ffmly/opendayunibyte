@@ -10,6 +10,7 @@ import { UserShell } from "@/components/layout/user-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/feedback";
+import { InstallPwaCard } from "@/components/pwa/install-card";
 import type { XpEventType } from "@shared/models";
 
 const xpTypeLabel: Record<XpEventType, string> = {
@@ -57,6 +58,9 @@ function DashboardInner() {
           </p>
         </div>
       </section>
+
+      {/* PWA Install helper (Android, Samsung Internet, iOS Safari) */}
+      <InstallPwaCard />
 
       {/* SCAN QR — the primary action */}
       <Link href="/scan" className="block">
