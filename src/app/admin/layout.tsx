@@ -8,6 +8,7 @@ import {
   Users,
   QrCode,
   Wrench,
+  UserCheck,
   Zap,
   Settings,
   LogOut,
@@ -22,6 +23,7 @@ const NAV = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/qr", label: "QR Codes", icon: QrCode },
   { href: "/admin/workshops", label: "Workshops", icon: Wrench },
+  { href: "/admin/attendance", label: "Attendance", icon: UserCheck },
   { href: "/admin/quiz", label: "Quiz Control", icon: Zap },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];

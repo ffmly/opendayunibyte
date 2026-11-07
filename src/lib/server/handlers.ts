@@ -57,6 +57,7 @@ const registry: Record<string, Handler> = {
   adminListQrs: reads.adminListQrs,
   adminListUsers: reads.adminListUsers,
   adminListWorkshops: reads.adminListWorkshops,
+  adminWorkshopAttendance: reads.adminWorkshopAttendance,
   adminGetSettings: reads.adminGetSettings,
   adminQuizState: reads.adminQuizState,
   adminLeaderboards: reads.adminLeaderboards,

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Ctx } from "./common";
 import { requireAuth, validate, ApiError } from "./common";
 import { getSqlPool } from "./supabase-db";
+import type { WorkshopAttendanceResult, WorkshopAttendee, WorkshopWithAttendance } from "@shared/models";
 
 function requireStaff(context: Ctx): void {
   const role = context.authToken?.role;
@@ -292,9 +293,97 @@ export async function adminLeaderboards(_data: unknown, context: Ctx) {
 export async function adminListWorkshops(_data: unknown, context: Ctx) {
   requireStaff(context);
   const result = await getSqlPool().query(
-    `select id, code, title, location, summary, post_image_url as "postImageUrl", content_url as "contentUrl", xp, active from public.workshops order by title asc`,
+    `select w.id, w.code, w.title, w.location, w.summary, w.post_image_url as "postImageUrl", w.content_url as "contentUrl", w.xp, w.active,
+            coalesce(c.attendance_count, 0)::int as "attendanceCount"
+       from public.workshops w
+       left join (
+         select workshop_id, count(*)::int as attendance_count
+         from public.workshop_checkins
+         group by workshop_id
+       ) c on c.workshop_id = w.id
+      order by w.code asc`,
   );
   return { workshops: result.rows };
+}
+
+export async function adminWorkshopAttendance(_data: unknown, context: Ctx): Promise<WorkshopAttendanceResult> {
+  requireStaff(context);
+  const pool = getSqlPool();
+
+  const workshopsRes = await pool.query<{
+    id: string;
+    code: string;
+    title: string;
+    location: string;
+    summary: string;
+    postImageUrl: string;
+    contentUrl: string;
+    xp: number;
+    active: boolean;
+    attendanceCount: number;
+  }>(`
+    select w.id, w.code, w.title, w.location, w.summary, w.post_image_url as "postImageUrl", w.content_url as "contentUrl", w.xp, w.active,
+           coalesce(c.attendance_count, 0)::int as "attendanceCount"
+      from public.workshops w
+      left join (
+        select workshop_id, count(*)::int as attendance_count
+        from public.workshop_checkins
+        group by workshop_id
+      ) c on c.workshop_id = w.id
+     order by "attendanceCount" desc, w.code asc
+  `);
+
+  const attendeesRes = await pool.query<{
+    workshopId: string;
+    userId: string;
+    points: number;
+    checkedInAt: string | Date;
+    nickname: string;
+    email: string | null;
+  }>(`
+    select wc.workshop_id as "workshopId",
+           wc.user_id as "userId",
+           wc.points,
+           wc.created_at as "checkedInAt",
+           coalesce(p.nickname, 'Attendee') as nickname,
+           coalesce(p.email, u.email) as email
+      from public.workshop_checkins wc
+      left join public.profiles p on p.id = wc.user_id
+      left join auth.users u on u.id::text = wc.user_id
+     order by wc.created_at desc
+  `);
+
+  const attendeesByWorkshop = new Map<string, WorkshopAttendee[]>();
+  const uniqueUsers = new Set<string>();
+
+  for (const row of attendeesRes.rows) {
+    uniqueUsers.add(row.userId);
+    const list = attendeesByWorkshop.get(row.workshopId) ?? [];
+    list.push({
+      userId: row.userId,
+      nickname: row.nickname,
+      email: row.email,
+      points: Number(row.points ?? 0),
+      checkedInAt: typeof row.checkedInAt === "string" ? row.checkedInAt : new Date(row.checkedInAt).toISOString(),
+    });
+    attendeesByWorkshop.set(row.workshopId, list);
+  }
+
+  const workshops: WorkshopWithAttendance[] = workshopsRes.rows.map((w) => ({
+    ...w,
+    attendees: attendeesByWorkshop.get(w.id) ?? [],
+  }));
+
+  const totalCheckins = attendeesRes.rows.length;
+
+  return {
+    stats: {
+      totalWorkshops: workshops.length,
+      totalCheckins,
+      uniqueAttendees: uniqueUsers.size,
+    },
+    workshops,
+  };
 }
 
 export async function adminGetSettings(_data: unknown, context: Ctx) {

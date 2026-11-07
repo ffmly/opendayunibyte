@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { call } from "@/lib/supabase/callable";
 import { Button } from "@/components/ui/button";
+import { UserCheck } from "lucide-react";
 
 interface WorkshopRow {
   id: string;
@@ -11,6 +13,7 @@ interface WorkshopRow {
   location?: string;
   xp: number;
   active: boolean;
+  attendanceCount?: number;
   summary?: string;
   postImageUrl?: string;
   contentUrl?: string;
@@ -184,9 +187,19 @@ export default function AdminWorkshopsPage() {
                   {w.code} {w.location && `· ${w.location}`} · {w.xp} XP
                 </p>
               </div>
-              <span className={"badge " + (w.active ? "badge-success" : "badge-danger")}>
-                {w.active ? "Active" : "Inactive"}
-              </span>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/admin/attendance"
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition hover:bg-primary/20"
+                  title="View attendance details"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>{w.attendanceCount ?? 0} {w.attendanceCount === 1 ? "attendee" : "attendees"}</span>
+                </Link>
+                <span className={"badge " + (w.active ? "badge-success" : "badge-danger")}>
+                  {w.active ? "Active" : "Inactive"}
+                </span>
+              </div>
             </li>
           ))}
           {workshops.length === 0 && (

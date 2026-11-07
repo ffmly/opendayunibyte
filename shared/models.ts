@@ -265,6 +265,37 @@ export interface AdminLeaderboardsResult {
   workshops: AdminWorkshopLeaderboardEntry[];
 }
 
+export interface WorkshopAttendee {
+  userId: string;
+  nickname: string;
+  email: string | null;
+  points: number;
+  checkedInAt: string;
+}
+
+export interface WorkshopWithAttendance {
+  id: string;
+  code: string;
+  title: string;
+  location?: string;
+  summary?: string;
+  postImageUrl?: string;
+  contentUrl?: string;
+  xp: number;
+  active: boolean;
+  attendanceCount: number;
+  attendees: WorkshopAttendee[];
+}
+
+export interface WorkshopAttendanceResult {
+  stats: {
+    totalWorkshops: number;
+    totalCheckins: number;
+    uniqueAttendees: number;
+  };
+  workshops: WorkshopWithAttendance[];
+}
+
 export interface EventSettings {
   eventName?: string;
   eventNameAr?: string;
