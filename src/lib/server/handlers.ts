@@ -61,6 +61,7 @@ const registry: Record<string, Handler> = {
   adminQuizState: reads.adminQuizState,
   adminLeaderboards: reads.adminLeaderboards,
   adminCleanupParticipants: admin.adminCleanupParticipants,
+  adminCreateUser: admin.adminCreateUser,
 };
 
 function json(data: unknown, status: number): Response {

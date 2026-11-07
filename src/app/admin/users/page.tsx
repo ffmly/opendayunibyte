@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { call } from "@/lib/supabase/callable";
 import { formatNumber } from "@/lib/utils/format";
-import { Search, Plus, Minus, Ban, CheckCircle } from "lucide-react";
+import { Search, Plus, Minus, Ban, CheckCircle, UserPlus, X } from "lucide-react";
 
 interface UserRow {
   uid: string;
@@ -19,15 +19,39 @@ export default function AdminUsersPage() {
   const [adjusting, setAdjusting] = useState<{ [uid: string]: boolean }>({});
   const [message, setMessage] = useState<{ ok?: string; err?: string }>({});
 
+  // Add User modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newNickname, setNewNickname] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newXp, setNewXp] = useState("50");
+  const [creating, setCreating] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const loadUsers = useCallback(async () => {
+    try {
+      const result = await call<unknown, { users: UserRow[] }>("adminListUsers");
+      setUsers(result.users);
+    } catch {
+      // ignore transient poll errors
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const result = await call<unknown, { users: UserRow[] }>("adminListUsers");
-      if (!cancelled) setUsers(result.users);
+      try {
+        const result = await call<unknown, { users: UserRow[] }>("adminListUsers");
+        if (!cancelled) setUsers(result.users);
+      } catch {
+        // ignore
+      }
     };
     void load();
     const timer = window.setInterval(load, 3_000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   const filtered = users.filter(
@@ -60,11 +84,61 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function handleCreateUser(e: React.FormEvent) {
+    e.preventDefault();
+    setFormError("");
+    if (!newNickname.trim()) {
+      setFormError("Nickname is required");
+      return;
+    }
+    if (!newEmail.trim()) {
+      setFormError("Email is required");
+      return;
+    }
+    setCreating(true);
+    try {
+      await call("adminCreateUser", {
+        nickname: newNickname.trim(),
+        email: newEmail.trim().toLowerCase(),
+        totalXP: newXp === "" ? 50 : Math.max(0, parseInt(newXp, 10) || 0),
+      });
+      setMessage({ ok: `User "${newNickname.trim()}" created successfully!` });
+      setNewNickname("");
+      setNewEmail("");
+      setNewXp("50");
+      setShowAddModal(false);
+      await loadUsers();
+    } catch (err) {
+      setFormError((err as { message?: string }).message ?? "Failed to create user");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-extrabold text-ink">Users</h1>
-        <p className="mt-0.5 text-sm text-ink-soft">Search, view emails, adjust XP, toggle activity.</p>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-extrabold text-ink">Users</h1>
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
+              {users.length} total
+            </span>
+          </div>
+          <p className="mt-0.5 text-sm text-ink-soft">
+            Search, view emails, adjust XP, toggle activity, or register new users.
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setFormError("");
+            setShowAddModal(true);
+          }}
+          className="btn btn-primary inline-flex items-center gap-2"
+        >
+          <UserPlus className="h-4 w-4" />
+          <span>Add User</span>
+        </button>
       </header>
 
       {message.ok && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-success">{message.ok}</p>}
@@ -163,6 +237,99 @@ export default function AdminUsersPage() {
           </tbody>
         </table>
       </div>
+
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-line bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-line pb-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <UserPlus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-ink">Add New User</h3>
+                  <p className="text-xs text-ink-soft">Register attendee &amp; add to leaderboard</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="rounded-lg p-1.5 text-ink-soft hover:bg-black/5 hover:text-ink"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="mt-4 space-y-4">
+              {formError && (
+                <div className="rounded-lg bg-red-50 p-3 text-xs text-danger">
+                  {formError}
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">Nickname *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Alex"
+                  value={newNickname}
+                  onChange={(e) => setNewNickname(e.target.value)}
+                  className="input w-full"
+                  disabled={creating}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">Email *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. alex@example.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="input w-full"
+                  disabled={creating}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">Starting XP</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="5"
+                  placeholder="50"
+                  value={newXp}
+                  onChange={(e) => setNewXp(e.target.value)}
+                  className="input w-full"
+                  disabled={creating}
+                />
+                <p className="mt-1 text-[11px] text-ink-soft">
+                  Default is 50 XP (Registration bonus). Automatically syncs with leaderboard.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="btn btn-outline btn-sm"
+                  disabled={creating}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm inline-flex items-center gap-1.5"
+                  disabled={creating}
+                >
+                  {creating ? "Creating..." : "Create User"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

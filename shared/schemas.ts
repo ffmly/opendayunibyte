@@ -175,3 +175,10 @@ export const adminUpdateRewardsSchema = z.object({
     })
     .passthrough(),
 });
+
+export const adminCreateUserSchema = z.object({
+  nickname: nicknameSchema,
+  email: emailSchema,
+  totalXP: z.number().int().min(0).max(100000).optional(),
+});
+

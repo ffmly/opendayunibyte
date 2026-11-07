@@ -15,6 +15,7 @@ import {
   adminSetRoleSchema,
   adminUpdateRewardsSchema,
   adminCleanupParticipantsSchema,
+  adminCreateUserSchema,
 } from "@shared/schemas";
 import { getSqlPool, getAdminClient } from "./supabase-db";
 import { createQrCode, getRewards } from "./qr";
@@ -434,5 +435,67 @@ export async function adminCleanupParticipants(data: unknown, context: Ctx) {
     deletedProfiles: deletedProfilesCount,
     deletedAuthUsers: deletedAuthUsersCount,
     preservedAdmins: preservedUids.size,
+  };
+}
+
+/**
+ * adminCreateUser — admin creates a new attendee user account directly from the admin panel.
+ * Creates both the auth user and profile, automatically entering them into the leaderboard.
+ */
+export async function adminCreateUser(data: unknown, context: Ctx) {
+  requireAuth(context);
+  requireAdmin(context);
+  const input = validate(adminCreateUserSchema, data);
+
+  const nicknameTrimmed = input.nickname.trim();
+  const emailNormalized = input.email.trim().toLowerCase();
+  const initialXp = input.totalXP ?? 50;
+
+  const pool = getSqlPool();
+
+  // Check if profile with email already exists
+  const existing = await pool.query(
+    `select id from public.profiles where lower(trim(coalesce(email, ''))) = $1 limit 1`,
+    [emailNormalized],
+  );
+  if (existing.rows.length > 0) {
+    throw new ApiError("already-exists", "A user with this email address already exists.");
+  }
+
+  // Create auth user
+  const supabase = getAdminClient();
+  const { data: createdAuth, error: authError } = await supabase.auth.admin.createUser({
+    email: emailNormalized,
+    email_confirm: true,
+    user_metadata: { nickname: nicknameTrimmed, totalXP: initialXp },
+  });
+
+  if (authError || !createdAuth?.user) {
+    throw new ApiError("internal", authError?.message ?? "Failed to create authentication user.");
+  }
+
+  const newUid = createdAuth.user.id;
+
+  // Insert or update profile
+  await pool.query(
+    `insert into public.profiles (id, nickname, nickname_key, email, total_xp, created_at, last_active_at, status)
+     values ($1, $2, lower($2), $3, $4, now(), now(), 'active')
+     on conflict (id) do update
+       set nickname = excluded.nickname,
+           email = excluded.email,
+           total_xp = excluded.total_xp,
+           status = 'active'`,
+    [newUid, nicknameTrimmed, emailNormalized, initialXp],
+  );
+
+  return {
+    ok: true,
+    user: {
+      uid: newUid,
+      nickname: nicknameTrimmed,
+      email: emailNormalized,
+      totalXP: initialXp,
+      status: "active",
+    },
   };
 }

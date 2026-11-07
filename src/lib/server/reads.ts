@@ -192,8 +192,19 @@ export async function adminListQrs(_data: unknown, context: Ctx) {
 export async function adminListUsers(_data: unknown, context: Ctx) {
   requireAdmin(context);
   const result = await getSqlPool().query(
-    `select id as uid, nickname, email, total_xp as "totalXP", status, created_at as "createdAt", last_active_at as "lastActiveAt", legacy_firebase as "legacyFirebase"
-       from public.profiles order by total_xp desc, created_at asc limit 500`,
+    `select
+       coalesce(p.id, u.id::text) as uid,
+       coalesce(p.nickname, nullif(split_part(coalesce(u.email, p.email, ''), '@', 1), ''), 'User') as nickname,
+       coalesce(p.email, u.email) as email,
+       coalesce(p.total_xp, 0)::int as "totalXP",
+       coalesce(p.status, 'active') as status,
+       coalesce(p.created_at, u.created_at) as "createdAt",
+       coalesce(p.last_active_at, u.last_sign_in_at, p.created_at, u.created_at) as "lastActiveAt",
+       coalesce(p.legacy_firebase, false) as "legacyFirebase"
+     from public.profiles p
+     full outer join auth.users u on u.id::text = p.id
+     order by "totalXP" desc, "createdAt" desc nulls last
+     limit 1000`,
   );
   return { users: result.rows };
 }
