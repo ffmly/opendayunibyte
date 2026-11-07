@@ -16,7 +16,7 @@ function requireAdmin(context: Ctx): void {
   }
 }
 
-const topSchema = z.object({ top: z.number().int().min(1).max(200).optional() });
+const topSchema = z.object({ top: z.number().int().min(1).max(1000).optional() });
 
 export async function getActivityHistory(data: unknown, context: Ctx) {
   const uid = requireAuth(context);
@@ -48,21 +48,53 @@ export async function getWorkshopsData(_data: unknown, context: Ctx) {
 }
 
 export async function getLeaderboard(data: unknown, context: Ctx) {
-  const { top = 50 } = validate(topSchema, data);
-  const entries = await getSqlPool().query(
-    `select user_id as uid, nickname, total_xp as "totalXP", updated_at as "updatedAt"
-       from public.leaderboard order by total_xp desc, updated_at asc limit $1`,
+  const { top = 100 } = validate(topSchema, data);
+  const pool = getSqlPool();
+  const entries = await pool.query(
+    `select
+       p.id as uid,
+       p.nickname,
+       coalesce(l.total_xp, p.total_xp, 0)::int as "totalXP",
+       coalesce(l.updated_at, p.last_active_at, p.created_at) as "updatedAt"
+     from public.profiles p
+     left join public.leaderboard l on l.user_id = p.id
+     where coalesce(p.status, 'active') != 'disabled'
+     order by "totalXP" desc, "updatedAt" asc, p.id asc
+     limit $1`,
     [top],
   );
-  let myEntry = null;
+  let myEntry: { uid: string; nickname: string; totalXP: number; updatedAt: unknown; rank?: number } | null = null;
   if (context.auth?.uid) {
-    const mine = await getSqlPool().query(
-      `select user_id as uid, nickname, total_xp as "totalXP", updated_at as "updatedAt" from public.leaderboard where user_id = $1`,
+    const mine = await pool.query(
+      `select
+         p.id as uid,
+         p.nickname,
+         coalesce(l.total_xp, p.total_xp, 0)::int as "totalXP",
+         coalesce(l.updated_at, p.last_active_at, p.created_at) as "updatedAt"
+       from public.profiles p
+       left join public.leaderboard l on l.user_id = p.id
+       where p.id = $1`,
       [context.auth.uid],
     );
-    myEntry = mine.rows[0] ?? null;
+    if (mine.rows[0]) {
+      const myRow = mine.rows[0];
+      const rankRes = await pool.query<{ rank: number }>(
+        `select count(*)::int + 1 as rank
+           from public.profiles
+          where coalesce(status, 'active') != 'disabled'
+            and (
+              total_xp > $1
+              or (total_xp = $1 and coalesce(last_active_at, created_at) < $2)
+            )`,
+        [myRow.totalXP, myRow.updatedAt],
+      );
+      myEntry = { ...myRow, rank: rankRes.rows[0]?.rank ?? 1 };
+    }
   }
-  return { entries: entries.rows, myEntry };
+  const total = await pool.query(
+    `select count(*)::int as count from public.profiles where coalesce(status, 'active') != 'disabled'`,
+  );
+  return { entries: entries.rows, myEntry, totalUsers: total.rows[0]?.count ?? entries.rows.length };
 }
 
 export async function getWorkshop(data: unknown) {
@@ -108,8 +140,16 @@ export async function getQuizLiveState(data: unknown) {
     participants = result.rows;
   }
   const allTime = await getSqlPool().query(
-    `select user_id as uid, nickname, total_xp as "totalXP", updated_at as "updatedAt"
-       from public.leaderboard order by total_xp desc, updated_at asc limit $1`,
+    `select
+       p.id as uid,
+       p.nickname,
+       coalesce(l.total_xp, p.total_xp, 0)::int as "totalXP",
+       coalesce(l.updated_at, p.last_active_at, p.created_at) as "updatedAt"
+     from public.profiles p
+     left join public.leaderboard l on l.user_id = p.id
+     where coalesce(p.status, 'active') != 'disabled'
+     order by "totalXP" desc, "updatedAt" asc, p.id asc
+     limit $1`,
     [leaderboardLimit],
   );
   return { session, participants, allTime: allTime.rows };

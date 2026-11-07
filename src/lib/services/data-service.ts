@@ -67,14 +67,19 @@ export function useWorkshops(uid: string | undefined) {
   return { workshops: state.data.workshops, checkedIn: new Set(state.data.checkedIn), loading: state.loading };
 }
 
-export function useLeaderboard(uid: string | undefined, top = 50) {
+export function useLeaderboard(uid: string | undefined, top = 200) {
   const state = usePolling(
     true,
     () => call<{ top: number }, {
       entries: Array<LeaderboardEntry & { uid: string }>;
-      myEntry: (LeaderboardEntry & { uid: string }) | null;
+      myEntry: (LeaderboardEntry & { uid: string; rank?: number }) | null;
+      totalUsers?: number;
     }>("getLeaderboard", { top }),
-    { entries: [] as Array<LeaderboardEntry & { uid: string }>, myEntry: null },
+    {
+      entries: [] as Array<LeaderboardEntry & { uid: string }>,
+      myEntry: null as (LeaderboardEntry & { uid: string; rank?: number }) | null,
+      totalUsers: 0,
+    },
     2_000,
   );
   return { ...state.data, loading: state.loading };

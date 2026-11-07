@@ -15,7 +15,7 @@ export default function LeaderboardScreen() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const result = await call<{ top: number }, { entries: Array<LeaderboardEntry & { uid: string }> }>("getLeaderboard", { top: 20 });
+      const result = await call<{ top: number }, { entries: Array<LeaderboardEntry & { uid: string }> }>("getLeaderboard", { top: 50 });
       if (!cancelled) setEntries(result.entries);
     };
     void load();

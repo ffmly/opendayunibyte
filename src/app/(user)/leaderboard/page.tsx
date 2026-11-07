@@ -20,30 +20,44 @@ function LeaderboardInner() {
   const { user } = useAuth();
   const { t } = useI18n();
   const uid = user?.id;
-  const { entries, myEntry, loading } = useLeaderboard(uid, 100);
+  const { entries, myEntry, totalUsers, loading } = useLeaderboard(uid, 500);
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-extrabold text-ink">{t.leaderboard.title}</h1>
-        <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-soft">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-extrabold text-ink">{t.leaderboard.title}</h1>
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-soft">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+            </span>
+            {t.leaderboard.updated}
+          </p>
+        </div>
+        {(totalUsers ?? 0) > 0 && (
+          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+            {totalUsers} {t.dashboard.rank === "الترتيب" ? "مشارك" : "participants"}
           </span>
-          {t.leaderboard.updated}
-        </p>
+        )}
       </header>
 
       {/* Your row */}
       {myEntry && (
-        <Card className="card-pad flex items-center justify-between bg-primary-tint !border-primary/20">
+        <Card className="card-pad flex items-center justify-between bg-primary-tint !border-primary/20 shadow-sm">
           <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
-              {myEntry.nickname?.[0]?.toUpperCase() ?? "?"}
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-white shadow-sm">
+              {myEntry.rank ? `#${myEntry.rank}` : (myEntry.nickname?.[0]?.toUpperCase() ?? "?")}
             </span>
             <div>
-              <p className="text-sm font-bold text-primary">{t.leaderboard.you}</p>
+              <p className="text-sm font-bold text-primary flex items-center gap-1.5">
+                <span>{t.leaderboard.you}</span>
+                {myEntry.rank && (
+                  <span className="rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-extrabold text-primary">
+                    #{myEntry.rank}
+                  </span>
+                )}
+              </p>
               <p className="text-xs text-ink-soft">{myEntry.nickname}</p>
             </div>
           </div>
