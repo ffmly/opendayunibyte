@@ -11,6 +11,11 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    // Separate legacy/asset-generation projects are not part of this app.
+    "psychic-lamp/**",
+    "scripts/*.cjs",
+    // Legacy Cloud Functions are compiled and checked by their own tsconfig.
+    "functions/**",
     "next-env.d.ts",
   ]),
 ]);

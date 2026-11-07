@@ -2,25 +2,163 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1c1b1f;
+
+  --color-primary: #550055;
+  --color-primary-dark: #3b003b;
+  --color-primary-deep: #2a002a;
+  --color-primary-tint: #f7f0f7;
+  --color-primary-soft: #eee1ee;
+
+  --color-ink: #1c1b1f;
+  --color-ink-soft: #5c5a61;
+  --color-line: #e8e6ea;
+  --color-surface: #ffffff;
+  --color-surface-muted: #faf8fa;
+  --color-success: #1a7f4b;
+  --color-warning: #b45309;
+  --color-danger: #b91c1c;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  --color-primary: var(--color-primary);
+  --color-primary-dark: var(--color-primary-dark);
+  --color-primary-deep: var(--color-primary-deep);
+  --color-primary-tint: var(--color-primary-tint);
+  --color-primary-soft: var(--color-primary-soft);
+
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-line: var(--color-line);
+  --color-surface: var(--color-surface);
+  --color-surface-muted: var(--color-surface-muted);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+
+  --font-sans: var(--font-unibyte-display), var(--font-unibyte-sans);
+  --font-mono: var(--font-unibyte-mono);
+  --font-display: var(--font-unibyte-display), var(--font-unibyte-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--background);
+  color: var(--foreground);
 }
 
 body {
-  background: var(--background);
+  background: #fdf9fd;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.open-day-bg {
+  background-color: #fdf9fd;
+  background-image:
+    linear-gradient(rgba(255, 252, 255, 0.12), rgba(255, 252, 255, 0.12)),
+    url("/open-day-paper.png");
+  background-position: center top;
+  background-size: cover;
+  background-attachment: fixed;
+}
+
+.paper-panel {
+  background: rgba(255, 252, 255, 0.86);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Display face for headings, with tight, refined tracking */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* ------------------------------------------------------------------ */
+/* Buttons                                                             */
+/* ------------------------------------------------------------------ */
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-colors select-none disabled:opacity-50 disabled:pointer-events-none;
+}
+
+.btn-lg { @apply h-14 px-6 text-base; }
+.btn-md { @apply h-11 px-5 text-sm; }
+.btn-sm { @apply h-9 px-3.5 text-sm; }
+.btn-icon { @apply h-11 w-11; }
+
+.btn-primary {
+  @apply bg-primary text-white hover:bg-primary-dark active:bg-primary-deep;
+}
+
+.btn-outline {
+  @apply border border-line text-ink hover:bg-surface-muted;
+}
+
+.btn-outline-primary {
+  @apply border border-primary text-primary hover:bg-primary-tint;
+}
+
+.btn-ghost {
+  @apply text-ink-soft hover:text-ink hover:bg-surface-muted;
+}
+
+/* ------------------------------------------------------------------ */
+/* Cards                                                               */
+/* ------------------------------------------------------------------ */
+
+.card {
+  @apply bg-white/90 border border-line rounded-xl;
+  backdrop-filter: blur(8px);
+}
+
+.card-pad {
+  @apply p-4 sm:p-5;
+}
+
+/* ------------------------------------------------------------------ */
+/* Inputs                                                              */
+/* ------------------------------------------------------------------ */
+
+.input {
+  @apply w-full h-12 px-4 rounded-lg border border-line bg-white text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition;
+}
+
+.label {
+  @apply block text-sm font-medium text-ink mb-1.5;
+}
+
+/* ------------------------------------------------------------------ */
+/* Misc                                                                */
+/* ------------------------------------------------------------------ */
+
+.badge {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-primary { @apply bg-primary-tint text-primary; }
+.badge-neutral { @apply bg-surface-muted text-ink-soft border border-line; }
+.badge-success { @apply bg-green-50 text-success; }
+.badge-warning { @apply bg-amber-50 text-warning; }
+.badge-danger  { @apply bg-red-50 text-danger; }
+
+.skeleton {
+  @apply animate-pulse rounded-lg bg-surface-muted;
+}
+
+/* Hide scrollbars on horizontal scrollers */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

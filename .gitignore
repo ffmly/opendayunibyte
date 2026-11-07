@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +40,24 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# firebase
+/.firebase/
+firebase-debug.log*
+/serviceAccountKey.json
+/*firebase-adminsdk*.json
+
+# local migration / handoff artifacts (contain private data or credentials)
+/migration/*.local.json
+/ADMIN_CREDENTIALS.local.md
+
+# unrelated local projects and generated design exports
+/psychic-lamp/
+/output/
+/admin-login-verified.png
+/scripts/*.cjs
+/functions/
+/.firebaserc
+/firebase.json
+/firestore.indexes.json
+/firestore.rules
