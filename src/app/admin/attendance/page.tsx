@@ -352,10 +352,10 @@ export default function AdminAttendancePage() {
                       </span>
                     </div>
 
-                    <h3 className="text-lg font-extrabold text-ink">{w.title}</h3>
+                    <h3 className="text-lg font-extrabold text-ink" dir="auto">{w.title}</h3>
 
                     {w.summary && (
-                      <p className="line-clamp-2 text-xs text-ink-soft max-w-2xl">{w.summary}</p>
+                      <p className="line-clamp-2 text-xs text-ink-soft max-w-2xl" dir="auto">{w.summary}</p>
                     )}
                   </div>
 

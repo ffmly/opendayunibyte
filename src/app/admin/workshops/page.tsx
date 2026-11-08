@@ -328,7 +328,7 @@ export default function AdminWorkshopsPage() {
                 )}
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-bold text-ink">{w.title}</p>
+                    <p className="text-sm font-bold text-ink" dir="auto">{w.title}</p>
                     <span className="rounded-md bg-ink/5 px-2 py-0.5 text-[11px] font-bold text-ink-soft">
                       {w.code}
                     </span>
@@ -337,7 +337,7 @@ export default function AdminWorkshopsPage() {
                     {w.location ? `${w.location} · ` : ""}{w.xp} XP
                   </p>
                   {w.summary && (
-                    <p className="mt-0.5 line-clamp-1 text-xs text-ink-soft/80 max-w-md">
+                    <p className="mt-0.5 line-clamp-1 text-xs text-ink-soft/80 max-w-md" dir="auto">
                       {w.summary}
                     </p>
                   )}
@@ -431,6 +431,7 @@ export default function AdminWorkshopsPage() {
                   <label className="label">Title *</label>
                   <input
                     className="input"
+                    dir="auto"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
                     required
@@ -444,6 +445,7 @@ export default function AdminWorkshopsPage() {
                   <label className="label">Location</label>
                   <input
                     className="input"
+                    dir="auto"
                     value={editLocation}
                     onChange={(e) => setEditLocation(e.target.value)}
                     placeholder="e.g. Lab B, Main Hall"
@@ -468,6 +470,7 @@ export default function AdminWorkshopsPage() {
                 <label className="label">Activity summary / description</label>
                 <textarea
                   className="input min-h-28 py-2.5 text-sm leading-relaxed"
+                  dir="auto"
                   value={editSummary}
                   onChange={(e) => setEditSummary(e.target.value)}
                   placeholder="What participants will experience and learn in this workshop…"
