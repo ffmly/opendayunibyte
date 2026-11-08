@@ -155,10 +155,29 @@ export const adminCreateWorkshopSchema = z.object({
   code: z.string().trim().min(1).max(12),
   title: z.string().trim().min(1).max(80),
   location: z.string().trim().max(80).optional(),
-  summary: z.string().trim().max(800).optional(),
-  postImageUrl: z.string().trim().url().max(500).optional(),
-  contentUrl: z.string().trim().url().max(500).optional(),
+  summary: z.string().trim().max(2000).optional(),
+  postImageUrl: z.string().trim().max(1000).optional().or(z.literal("")),
+  contentUrl: z.string().trim().max(1000).optional().or(z.literal("")),
   xp: z.number().int().min(0).optional(),
+});
+
+export const adminUpdateWorkshopSchema = z.object({
+  workshopId: z.string().trim().min(1),
+  code: z.string().trim().min(1).max(12).optional(),
+  title: z.string().trim().min(1).max(80).optional(),
+  location: z.string().trim().max(80).optional(),
+  summary: z.string().trim().max(2000).optional(),
+  postImageUrl: z.string().trim().max(1000).optional().or(z.literal("")),
+  contentUrl: z.string().trim().max(1000).optional().or(z.literal("")),
+  xp: z.number().int().min(0).optional(),
+  active: z.boolean().optional(),
+});
+
+export const adminUpdateQrSchema = z.object({
+  qrId: z.string().min(1),
+  label: z.string().trim().max(100).optional().or(z.literal("")),
+  targetId: z.string().trim().min(1).max(100).optional(),
+  active: z.boolean().optional(),
 });
 
 export const adminUpdateRewardsSchema = z.object({

@@ -12,10 +12,12 @@ import {
   adminDeleteQuizQuestionSchema,
   adminCreateCatSchema,
   adminCreateWorkshopSchema,
+  adminUpdateWorkshopSchema,
   adminSetRoleSchema,
   adminUpdateRewardsSchema,
   adminCleanupParticipantsSchema,
   adminCreateUserSchema,
+  adminUpdateQrSchema,
 } from "@shared/schemas";
 import { getSqlPool, getAdminClient } from "./supabase-db";
 import { createQrCode, getRewards } from "./qr";
@@ -53,9 +55,44 @@ export async function adminCreateQRCode(data: unknown, context: Ctx) {
 /** adminToggleQR — activate/deactivate an existing QR. */
 export async function adminToggleQR(data: unknown, context: Ctx) {
   requireAuth(context);
-  requireAdmin(context);
+  requireStaff(context);
   const input = validate(adminToggleQrSchema, data);
   await db.collection("qrCodes").doc(input.qrId).update({ active: input.active });
+  return { ok: true };
+}
+
+/** adminUpdateQR — update label, targetId, or active status of an existing QR. */
+export async function adminUpdateQR(data: unknown, context: Ctx) {
+  requireAuth(context);
+  requireStaff(context);
+  const input = validate(adminUpdateQrSchema, data);
+  const pool = getSqlPool();
+
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+
+  if (input.label !== undefined) {
+    updates.push(`label = $${idx++}`);
+    values.push(input.label.trim() || null);
+  }
+  if (input.targetId !== undefined) {
+    updates.push(`target_id = $${idx++}`);
+    values.push(input.targetId.trim());
+  }
+  if (input.active !== undefined) {
+    updates.push(`active = $${idx++}`);
+    values.push(input.active);
+  }
+
+  if (updates.length > 0) {
+    values.push(input.qrId);
+    await pool.query(
+      `update public.qr_codes set ${updates.join(", ")} where token = $${idx}`,
+      values,
+    );
+  }
+
   return { ok: true };
 }
 
@@ -284,6 +321,93 @@ export async function adminCreateWorkshop(data: unknown, context: Ctx) {
     label: input.title,
   });
   return { workshopId: ref.id, qr };
+}
+
+/** adminUpdateWorkshop — update title, summary/description, picture, location, XP, or active status. */
+export async function adminUpdateWorkshop(data: unknown, context: Ctx) {
+  requireAuth(context);
+  requireStaff(context);
+  const input = validate(adminUpdateWorkshopSchema, data);
+  const pool = getSqlPool();
+
+  const existing = await pool.query<{ id: string; code: string; title: string }>(
+    `select id, code, title from public.workshops where id = $1 limit 1`,
+    [input.workshopId],
+  );
+  if (existing.rows.length === 0) {
+    throw new ApiError("not-found", "Workshop not found.");
+  }
+
+  if (input.code && input.code !== existing.rows[0].code) {
+    const codeCheck = await pool.query(
+      `select id from public.workshops where code = $1 and id != $2 limit 1`,
+      [input.code.trim(), input.workshopId],
+    );
+    if (codeCheck.rows.length > 0) {
+      throw new ApiError("already-exists", `Workshop code "${input.code}" is already in use.`);
+    }
+  }
+
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+
+  if (input.code !== undefined) {
+    updates.push(`code = $${idx++}`);
+    values.push(input.code.trim());
+  }
+  if (input.title !== undefined) {
+    updates.push(`title = $${idx++}`);
+    values.push(input.title.trim());
+  }
+  if (input.location !== undefined) {
+    updates.push(`location = $${idx++}`);
+    values.push(input.location.trim());
+  }
+  if (input.summary !== undefined) {
+    updates.push(`summary = $${idx++}`);
+    values.push(input.summary.trim());
+  }
+  if (input.postImageUrl !== undefined) {
+    updates.push(`post_image_url = $${idx++}`);
+    values.push(input.postImageUrl.trim());
+  }
+  if (input.contentUrl !== undefined) {
+    updates.push(`content_url = $${idx++}`);
+    values.push(input.contentUrl.trim());
+  }
+  if (input.xp !== undefined) {
+    updates.push(`xp = $${idx++}`);
+    values.push(input.xp);
+  }
+  if (input.active !== undefined) {
+    updates.push(`active = $${idx++}`);
+    values.push(input.active);
+  }
+
+  if (updates.length > 0) {
+    values.push(input.workshopId);
+    await pool.query(
+      `update public.workshops set ${updates.join(", ")} where id = $${idx}`,
+      values,
+    );
+  }
+
+  // Update associated QR label if title was updated
+  if (input.title) {
+    await pool.query(
+      `update public.qr_codes set label = $1 where target_id = $2 and type = 'WORKSHOP'`,
+      [input.title.trim(), input.workshopId],
+    );
+  }
+
+  const updatedRes = await pool.query(
+    `select id, code, title, location, summary, post_image_url as "postImageUrl", content_url as "contentUrl", xp, active
+       from public.workshops where id = $1 limit 1`,
+    [input.workshopId],
+  );
+
+  return { ok: true, workshop: updatedRes.rows[0] };
 }
 
 /** adminStats — dashboard counts (admin only). */
