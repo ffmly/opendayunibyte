@@ -136,6 +136,7 @@ export async function adminCreateQuizSession(data: unknown, context: Ctx) {
     .get();
 
   const categoryOrder = [
+    "cs",
     "music",
     "mind_games",
     "logic",

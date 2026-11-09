@@ -36,7 +36,7 @@ function QuizInner() {
   const { t, locale } = useI18n();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session");
-  const [session, setSession] = useState<QuizSession | null>(null);
+  const [session, setSession] = useState<(QuizSession & { id: string }) | null>(null);
   const [questionState, setQuestionState] = useState<{ id: string; value: QuestionPublic } | null>(null);
   const [answersHistory, setAnswersHistory] = useState<Record<string, RecordedAnswer>>({});
   const [myPoints, setMyPoints] = useState(0);
@@ -50,18 +50,42 @@ function QuizInner() {
   }, []);
 
   useEffect(() => {
-    if (!sessionId) return;
     let cancelled = false;
     const load = async () => {
       try {
-        const [live, mine] = await Promise.all([
-          call<unknown, { session: (QuizSession & { id: string }) | null }>("getQuizLiveState", { participantLimit: 10, leaderboardLimit: 3 }),
-          call<{ sessionId: string }, { participant: { points: number } | null }>("getQuizParticipantState", { sessionId }),
-        ]);
-        if (!cancelled) {
-          setSession(live.session?.id === sessionId ? live.session : null);
-          setMyPoints(live.session?.id === sessionId ? (mine.participant?.points ?? 0) : 0);
+        const live = await call<unknown, { session: (QuizSession & { id: string }) | null }>(
+          "getQuizLiveState",
+          { participantLimit: 10, leaderboardLimit: 3 },
+        );
+        if (cancelled) return;
+
+        const liveSession = live?.session;
+        const targetSession = liveSession && liveSession.status !== "ended" ? liveSession : null;
+        const resolvedSessionId = targetSession?.id || sessionId;
+
+        let participantPoints: number | null = null;
+        if (resolvedSessionId) {
+          try {
+            const mine = await call<{ sessionId: string }, { participant: { points: number } | null }>(
+              "getQuizParticipantState",
+              { sessionId: resolvedSessionId },
+            );
+            if (mine?.participant?.points !== undefined) {
+              participantPoints = mine.participant.points;
+            }
+          } catch {
+            // Transient error
+          }
         }
+
+        if (!cancelled) {
+          setSession(targetSession);
+          if (participantPoints !== null) {
+            setMyPoints(participantPoints);
+          }
+        }
+      } catch {
+        // Transient error
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -111,7 +135,8 @@ function QuizInner() {
   }, [questionId]);
 
   const answer = useCallback(async (answerIndex: number) => {
-    if (!sessionId || !questionId || !questionKey || answersHistory[questionKey] || clock?.ended || clock?.isRevealing) return;
+    const activeSessionId = session?.id || sessionId;
+    if (!activeSessionId || !questionId || !questionKey || answersHistory[questionKey] || clock?.ended || clock?.isRevealing) return;
     const initialEntry: RecordedAnswer = {
       questionKey,
       picked: answerIndex,
@@ -122,7 +147,10 @@ function QuizInner() {
     };
     setAnswersHistory((prev) => ({ ...prev, [questionKey]: initialEntry }));
     try {
-      const response = await submitQuizAnswer({ sessionId, questionId, answerIndex });
+      const response = await submitQuizAnswer({ sessionId: activeSessionId, questionId, answerIndex });
+      if (response.correct && response.points) {
+        setMyPoints((pts) => pts + response.points);
+      }
       setAnswersHistory((prev) => ({
         ...prev,
         [questionKey]: {
@@ -139,7 +167,7 @@ function QuizInner() {
       });
       setError((cause as Error).message || t.errors.generic);
     }
-  }, [sessionId, questionId, questionKey, answersHistory, clock, t.errors.generic]);
+  }, [session?.id, sessionId, questionId, questionKey, answersHistory, clock, t.errors.generic]);
 
   const question = questionState && questionState.id === questionId ? questionState.value : null;
   const currentAnswer = questionKey ? answersHistory[questionKey] : null;

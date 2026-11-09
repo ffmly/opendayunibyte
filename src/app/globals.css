@@ -92,6 +92,22 @@ h4 {
   letter-spacing: -0.02em;
 }
 
+/* Ensure Arabic headings never have negative letter spacing, preserving cursive ligatures */
+h1[dir="rtl"],
+h2[dir="rtl"],
+h3[dir="rtl"],
+h4[dir="rtl"],
+[dir="rtl"] h1,
+[dir="rtl"] h2,
+[dir="rtl"] h3,
+[dir="rtl"] h4,
+html[lang="ar"] h1,
+html[lang="ar"] h2,
+html[lang="ar"] h3,
+html[lang="ar"] h4 {
+  letter-spacing: normal !important;
+}
+
 /* ------------------------------------------------------------------ */
 /* Buttons                                                             */
 /* ------------------------------------------------------------------ */

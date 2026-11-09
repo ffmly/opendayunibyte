@@ -91,7 +91,8 @@ export async function submitQuizAnswer(data: unknown, context: Ctx) {
   if (clock.questionId !== questionId) {
     apiError("invalid-argument", "This question is not active.");
   }
-  if (clock.isRevealing) {
+  // Allow answering during the answering phase, plus a 2.5s network transit grace period into the reveal phase
+  if (clock.isRevealing && clock.revealRemainingSec < 2.5) {
     apiError("failed-precondition", "Time is up for this question.");
   }
 
@@ -106,8 +107,9 @@ export async function submitQuizAnswer(data: unknown, context: Ctx) {
   const answerRef = db
     .collection("quizAnswers")
     .doc(`${sessionId}_${uid}_r${clock.roundNumber}_${questionId}`);
-  const correct = answerIndex === (question.correctAnswer as number);
-  const points = correct ? (question.points as number) : 0;
+  const targetCorrectIndex = Number(question.correctAnswer ?? question.correct_answer ?? 0);
+  const correct = Number(answerIndex) === targetCorrectIndex;
+  const points = correct ? Number(question.points ?? 100) : 0;
   const questionDurationMs = ((session.questionDurationSec as number | undefined) ?? 30) * 1000;
   const latencyMs = Math.max(
     0,

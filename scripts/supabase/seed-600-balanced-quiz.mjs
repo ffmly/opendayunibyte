@@ -2,6 +2,7 @@ import nextEnv from "@next/env";
 import { createClient } from "@supabase/supabase-js";
 import pg from "pg";
 
+import { rawCS } from "./quiz_data/cs.mjs";
 import { rawMusic } from "./quiz_data/music.mjs";
 import { rawMindGames } from "./quiz_data/mind_games.mjs";
 import { rawLogic } from "./quiz_data/logic.mjs";
@@ -44,6 +45,11 @@ function cleanOption(text) {
   if (!text) return "";
   let str = String(text).trim();
 
+  // Protect Big-O notation like O(1), O(log n), O(n), O(n²), O(n log n)
+  if (/^O\(.*?\)$/i.test(str)) {
+    return str;
+  }
+
   // Strip trailing parenthetical explanations e.g. "25 (الفروق: -5...)" -> "25"
   const match = str.match(/^(.*?)\s*\((.*?)\)\s*(!*)$/);
   if (match) {
@@ -70,6 +76,7 @@ function seededShuffle(arr, seed) {
 }
 
 const categories = [
+  { key: "cs", name: "علوم الحاسوب والبرمجة", data: rawCS },
   { key: "music", name: "خمن الأغنية والشارة", data: rawMusic },
   { key: "mind_games", name: "ألعاب عقل وفوازير", data: rawMindGames },
   { key: "logic", name: "منطق واستنتاج", data: rawLogic },
@@ -79,7 +86,7 @@ const categories = [
 ];
 
 async function seed() {
-  console.log("Preparing 600 balanced questions across 6 categories...");
+  console.log("Preparing 700 balanced questions across 7 categories (100 each)...");
   const questionsToInsert = [];
   const answerDistribution = { 0: 0, 1: 0, 2: 0, 3: 0 };
 
@@ -126,10 +133,10 @@ async function seed() {
 
   console.log(`\nTotal questions prepared: ${questionsToInsert.length}`);
   console.log("Correct answer distribution across options:");
-  console.log(`  Option A (0): ${answerDistribution[0]} (${((answerDistribution[0] / 600) * 100).toFixed(1)}%)`);
-  console.log(`  Option B (1): ${answerDistribution[1]} (${((answerDistribution[1] / 600) * 100).toFixed(1)}%)`);
-  console.log(`  Option C (2): ${answerDistribution[2]} (${((answerDistribution[2] / 600) * 100).toFixed(1)}%)`);
-  console.log(`  Option D (3): ${answerDistribution[3]} (${((answerDistribution[3] / 600) * 100).toFixed(1)}%)`);
+  console.log(`  Option A (0): ${answerDistribution[0]} (${((answerDistribution[0] / questionsToInsert.length) * 100).toFixed(1)}%)`);
+  console.log(`  Option B (1): ${answerDistribution[1]} (${((answerDistribution[1] / questionsToInsert.length) * 100).toFixed(1)}%)`);
+  console.log(`  Option C (2): ${answerDistribution[2]} (${((answerDistribution[2] / questionsToInsert.length) * 100).toFixed(1)}%)`);
+  console.log(`  Option D (3): ${answerDistribution[3]} (${((answerDistribution[3] / questionsToInsert.length) * 100).toFixed(1)}%)`);
 
   // Clear existing questions from database
   console.log("\nClearing previous questions from Supabase public.quiz_questions...");
@@ -137,7 +144,7 @@ async function seed() {
   console.log(`Deleted ${deleteRes.rowCount ?? 0} previous questions.`);
 
   // Batch insert new questions in chunks of 50
-  console.log("Inserting 600 new balanced questions into public.quiz_questions...");
+  console.log("Inserting 700 new balanced questions into public.quiz_questions...");
   const chunkSize = 50;
   for (let i = 0; i < questionsToInsert.length; i += chunkSize) {
     const chunk = questionsToInsert.slice(i, i + chunkSize);
@@ -148,7 +155,7 @@ async function seed() {
     }
   }
 
-  console.log("All 600 questions successfully inserted into Supabase!");
+  console.log("All 700 questions successfully inserted into Supabase!");
 
   // Verify in database
   const countRes = await pgPool.query(

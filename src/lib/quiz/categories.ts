@@ -7,6 +7,13 @@ export interface QuizCategoryMeta {
 }
 
 export const QUIZ_CATEGORIES: Record<string, QuizCategoryMeta> = {
+  cs: {
+    key: "cs",
+    labelAr: "علوم الحاسوب والبرمجة",
+    labelEn: "Computer Science",
+    icon: "💻",
+    badgeBg: "bg-cyan-100 text-cyan-800 border-cyan-200",
+  },
   music: {
     key: "music",
     labelAr: "خمن الأغنية والشارة",

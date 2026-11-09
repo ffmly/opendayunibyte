@@ -5,7 +5,7 @@ export const REVEAL_DURATION_SEC = 5;
 export const ANSWER_DURATION_SEC = QUESTION_DURATION_SEC - REVEAL_DURATION_SEC; // 25s
 export const ROUND_QUESTION_COUNT = 10;
 export const ROUND_DURATION_SEC = QUESTION_DURATION_SEC * ROUND_QUESTION_COUNT;
-export const QUIZ_CATEGORIES_COUNT = 6;
+export const QUIZ_CATEGORIES_COUNT = 7;
 
 export function timestampToMillis(value: TimestampLike | null | undefined): number {
   if (!value) return 0;
