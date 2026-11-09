@@ -209,10 +209,11 @@ export default function QuizScreen() {
                   </span>
 
                   {/* Category Pill with Icon */}
-                  <span className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold ${categoryMeta.badgeBg}`}>
-                    <span>{categoryMeta.icon}</span>
+                  <span className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-extrabold ${categoryMeta.badgeBg}`}>
+                    <span className="text-base">{categoryMeta.icon}</span>
                     <span>{categoryMeta.labelAr}</span>
-                    <span className="text-[10px] opacity-75">({categoryMeta.labelEn})</span>
+                    <span className="mx-1 h-3.5 w-px bg-current/25" />
+                    <span className="text-xs font-semibold opacity-85">{categoryMeta.labelEn}</span>
                   </span>
 
                   <span className="h-px flex-1 bg-primary/15" />
@@ -228,8 +229,8 @@ export default function QuizScreen() {
 
                 {/* Question title */}
                 <h2
-                  dir="auto"
-                  className="max-w-6xl text-[clamp(28px,3.8vw,68px)] font-extrabold leading-[1.08] text-primary-deep"
+                  dir={/[\u0600-\u06FF]/.test(question.question) ? "rtl" : "ltr"}
+                  className="max-w-6xl text-[clamp(26px,3.5vw,56px)] font-extrabold leading-[1.3] text-primary-deep text-start [unicode-bidi:isolate]"
                 >
                   {question.question}
                 </h2>
@@ -261,7 +262,8 @@ export default function QuizScreen() {
                         </span>
                         <div className="flex flex-1 items-center justify-between gap-3">
                           <span
-                            className={`text-[clamp(18px,1.6vw,30px)] font-bold leading-tight ${
+                            dir={/[\u0600-\u06FF]/.test(option) ? "rtl" : "ltr"}
+                            className={`text-[clamp(18px,1.6vw,30px)] font-bold leading-tight text-start [unicode-bidi:isolate] ${
                               isCorrect ? "text-emerald-950 font-extrabold" : "text-ink"
                             }`}
                           >

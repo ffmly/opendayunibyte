@@ -187,7 +187,10 @@ function QuizInner() {
             </div>
 
             {/* Question Text */}
-            <h2 dir="auto" className="mt-4 text-xl sm:text-2xl font-extrabold leading-snug text-primary-deep">
+            <h2
+              dir={/[\u0600-\u06FF]/.test(question.question) ? "rtl" : "ltr"}
+              className="mt-4 text-xl sm:text-2xl font-extrabold leading-relaxed text-primary-deep text-start [unicode-bidi:isolate]"
+            >
               {question.question}
             </h2>
 
@@ -242,7 +245,12 @@ function QuizInner() {
                       {isRightOption ? "✓" : String.fromCharCode(65 + index)}
                     </span>
 
-                    <span className="flex-1 text-sm sm:text-base font-bold leading-snug">{option}</span>
+                    <span
+                      dir={/[\u0600-\u06FF]/.test(option) ? "rtl" : "ltr"}
+                      className="flex-1 text-sm sm:text-base font-bold leading-snug text-start [unicode-bidi:isolate]"
+                    >
+                      {option}
+                    </span>
 
                     {/* Locked badge during answering */}
                     {isPicked && !isRevealing && (
