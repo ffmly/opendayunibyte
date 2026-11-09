@@ -135,16 +135,50 @@ export async function adminCreateQuizSession(data: unknown, context: Ctx) {
     .orderBy("points", "desc")
     .get();
 
+  const categoryOrder = [
+    "music",
+    "mind_games",
+    "logic",
+    "crack_the_code",
+    "sequences",
+    "fun",
+  ];
+
+  const categorized: Record<string, string[]> = {};
+  for (const cat of categoryOrder) categorized[cat] = [];
+  categorized["other"] = [];
+
   const seenQuestions = new Set<string>();
-  const pool = questions.docs
-    .filter((doc) => {
-      const normalized = String(doc.data()?.question ?? "").trim().toLocaleLowerCase();
-      if (!normalized || seenQuestions.has(normalized)) return false;
-      seenQuestions.add(normalized);
-      return true;
-    })
-    .map((doc) => doc.id)
-    .sort();
+  for (const doc of questions.docs) {
+    const data = doc.data()!;
+    const normalized = String(data.question ?? "").trim().toLocaleLowerCase();
+    if (!normalized || seenQuestions.has(normalized)) continue;
+    seenQuestions.add(normalized);
+    const cat = String(data.category ?? "other");
+    if (categorized[cat]) {
+      categorized[cat].push(doc.id);
+    } else {
+      categorized["other"].push(doc.id);
+    }
+  }
+
+  // Interleave questions round-robin across categories so the quiz rotates topic by topic
+  const activeCategories = categoryOrder.filter((c) => categorized[c].length > 0);
+  if (categorized["other"].length > 0) activeCategories.push("other");
+
+  let pool: string[] = [];
+  if (activeCategories.length > 1) {
+    const maxLen = Math.max(...activeCategories.map((c) => categorized[c].length));
+    for (let i = 0; i < maxLen; i += 1) {
+      for (const cat of activeCategories) {
+        if (i < categorized[cat].length) {
+          pool.push(categorized[cat][i]!);
+        }
+      }
+    }
+  } else {
+    pool = questions.docs.map((doc) => doc.id).sort();
+  }
   if (pool.length < ROUND_QUESTION_COUNT) {
     apiError("failed-precondition", `At least ${ROUND_QUESTION_COUNT} active questions are required.`);
   }

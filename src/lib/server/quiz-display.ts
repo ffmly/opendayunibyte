@@ -4,10 +4,10 @@ import { z } from "zod";
 import { buildPublicQrUrl } from "@/lib/qr/parse";
 
 /**
- * getQuizDisplayQuestion — returns a question WITHOUT the correct answer.
- * Used by both the big screen and phone controllers. Public by design: the
- * question is projected on a screen for the whole audience anyway, and the
- * correct answer is never exposed.
+ * getQuizDisplayQuestion — returns question details including options, points,
+ * the correct answer index, and the category.
+ * Used by both the big screen and phone controllers. The UI keeps the correct
+ * answer hidden until the answering phase ends and the reveal intermission begins.
  */
 export async function getQuizDisplayQuestion(data: unknown) {
   const { questionId } = validate(
@@ -18,9 +18,11 @@ export async function getQuizDisplayQuestion(data: unknown) {
   if (!snap.exists) apiError("not-found", "Question not found");
   const q = snap.data()!;
   return {
-    question: q.question ?? "",
-    options: q.options ?? [],
-    points: q.points ?? 0,
+    question: String(q.question ?? ""),
+    options: (Array.isArray(q.options) ? q.options : []) as string[],
+    points: Number(q.points ?? 100),
+    correctAnswer: Number(q.correctAnswer ?? q.correct_answer ?? 0),
+    category: String(q.category ?? "general"),
   };
 }
 
@@ -39,4 +41,3 @@ export async function getQuizJoinCode() {
   const tokenStr = String(token);
   return { token: tokenStr, payload: buildPublicQrUrl(tokenStr) };
 }
-

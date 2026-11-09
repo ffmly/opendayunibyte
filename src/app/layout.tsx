@@ -1,7 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Cairo, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Tajawal, Cairo, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/providers/app-providers";
+
+const tajawal = Tajawal({
+  variable: "--font-unibyte-arabic",
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "700", "800", "900"],
+  display: "swap",
+});
 
 const cairo = Cairo({
   variable: "--font-unibyte-sans",
@@ -68,7 +75,7 @@ export default function RootLayout({
     <html
       lang="ar"
       dir="rtl"
-      className={`${spaceGrotesk.variable} ${cairo.variable} ${jetbrains.variable} h-full antialiased`}
+      className={`${tajawal.variable} ${spaceGrotesk.variable} ${cairo.variable} ${jetbrains.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <AppProviders>{children}</AppProviders>

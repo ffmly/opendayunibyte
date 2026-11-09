@@ -91,6 +91,9 @@ export async function submitQuizAnswer(data: unknown, context: Ctx) {
   if (clock.questionId !== questionId) {
     apiError("invalid-argument", "This question is not active.");
   }
+  if (clock.isRevealing) {
+    apiError("failed-precondition", "Time is up for this question.");
+  }
 
   const questionSnap = await db
     .collection("quizQuestions")

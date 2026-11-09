@@ -8,14 +8,20 @@ import { useI18n } from "@/components/providers/i18n-provider";
 import { submitQuizAnswer } from "@/lib/services/game-services";
 import { getQuizClock } from "@/lib/quiz/timing";
 import type { QuizSession } from "@shared/models";
-import { UserShell } from "@/components/layout/user-shell";
 import { LockedActivity } from "@/components/game/locked-activity";
 import { Card } from "@/components/ui/card";
 import { FullPageLoader } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils/cn";
 import { BackButton } from "@/components/navigation/back-button";
+import { getCategoryMeta } from "@/lib/quiz/categories";
 
-type QuestionPublic = { question: string; options: string[]; points: number };
+type QuestionPublic = {
+  question: string;
+  options: string[];
+  points: number;
+  correctAnswer?: number;
+  category?: string;
+};
 
 interface RecordedAnswer {
   questionKey: string;
@@ -79,7 +85,7 @@ function QuizInner() {
   }, [questionId, t.errors.generic]);
 
   const answer = useCallback(async (answerIndex: number) => {
-    if (!sessionId || !questionId || !questionKey || answersHistory[questionKey] || clock?.ended) return;
+    if (!sessionId || !questionId || !questionKey || answersHistory[questionKey] || clock?.ended || clock?.isRevealing) return;
     const initialEntry: RecordedAnswer = {
       questionKey,
       picked: answerIndex,
@@ -113,24 +119,12 @@ function QuizInner() {
   const currentAnswer = questionKey ? answersHistory[questionKey] : null;
   const picked = currentAnswer?.picked ?? null;
 
-  // Crucial: The player only sees the result AFTER the question timer ends or when the round ends!
-  // While clock.questionRemainingSec > 0, the answer is LOCKED, NEVER revealing correct/incorrect!
-  const isTimerEnded = clock ? clock.questionRemainingSec === 0 || clock.ended : false;
-  const result = isTimerEnded ? (currentAnswer?.result ?? null) : null;
+  // Reveal state: when isRevealing is true or questionRemainingSec === 0 or ended
+  const isRevealing = clock ? clock.isRevealing || clock.questionRemainingSec === 0 || clock.ended : false;
+  const correctAnswer = question?.correctAnswer ?? null;
+  const isCorrectPick = picked !== null && correctAnswer !== null && picked === correctAnswer;
 
-  // Previous question result banner (shows during the first 8 seconds of the new question)
-  const previousQuestionNumber = clock ? clock.questionIndex : 0;
-  const previousAnswer = useMemo(() => {
-    if (!clock || previousQuestionNumber <= 0) return null;
-    return Object.values(answersHistory).find(
-      (a) =>
-        a.roundNumber === clock.roundNumber &&
-        a.questionNumber === previousQuestionNumber &&
-        a.result !== null,
-    );
-  }, [clock, previousQuestionNumber, answersHistory]);
-
-  const showPreviousResult = Boolean(previousAnswer && clock && clock.questionRemainingSec > 22);
+  const categoryMeta = getCategoryMeta(question?.category);
 
   if (!sessionId) return <LockedActivity title={t.activities.quiz} />;
   if (loading) return <FullPageLoader />;
@@ -140,7 +134,10 @@ function QuizInner() {
       <BackButton fallback="/dashboard" />
       <header className="paper-panel rounded-2xl p-4 shadow-lg shadow-primary/5">
         <div className="flex items-center justify-between">
-          <div><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-primary">UniByte Open Day</p><h1 className="text-2xl font-extrabold text-primary-deep">Live Quiz</h1></div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-primary">UniByte Open Day</p>
+            <h1 className="text-2xl font-extrabold text-primary-deep">Live Quiz</h1>
+          </div>
           <span className="rounded-full bg-primary px-4 py-2 text-sm font-extrabold text-white">{myPoints} pts</span>
         </div>
       </header>
@@ -149,107 +146,126 @@ function QuizInner() {
 
       {session && clock && !clock.ended && question ? (
         <Card className="overflow-hidden border-primary/15 bg-white/92 shadow-xl shadow-primary/10">
-          <div className="h-2 bg-primary-tint"><div className="h-full bg-primary transition-[width] duration-200" style={{ width: `${(clock.questionRemainingSec / 30) * 100}%` }} /></div>
-          <div className="p-5">
-            {showPreviousResult && previousAnswer && (
-              <div
-                className={cn(
-                  "mb-4 flex items-center justify-between rounded-xl border px-3.5 py-2.5 text-xs font-extrabold shadow-sm animate-in fade-in slide-in-from-top-1 duration-200",
-                  previousAnswer.result
-                    ? "border-green-300 bg-green-50 text-green-900"
-                    : "border-red-300 bg-red-50 text-red-900",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  {previousAnswer.result ? (
-                    <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-danger shrink-0" />
-                  )}
-                  <span>
-                    {previousAnswer.result
-                      ? locale === "ar"
-                        ? `إجابة السؤال ${previousAnswer.questionNumber} كانت صحيحة! (+${previousAnswer.points} نقطة)`
-                        : `Question ${previousAnswer.questionNumber} was Correct! (+${previousAnswer.points} pts)`
-                      : locale === "ar"
-                        ? `إجابة السؤال ${previousAnswer.questionNumber} كانت خاطئة`
-                        : `Question ${previousAnswer.questionNumber} was Incorrect`}
-                  </span>
-                </div>
-              </div>
-            )}
+          {/* Progress bar */}
+          <div className="h-2 bg-primary-tint">
+            <div
+              className={`h-full transition-[width] duration-200 ${isRevealing ? "bg-emerald-500" : "bg-primary"}`}
+              style={{
+                width: isRevealing
+                  ? `${((clock.revealRemainingSec || 5) / 5) * 100}%`
+                  : `${(clock.questionRemainingSec / 25) * 100}%`,
+              }}
+            />
+          </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-extrabold text-primary">Round {clock.roundNumber} · Question {clock.questionIndex + 1} / {session.totalQuestions}</span>
-              <span className="flex items-center gap-1 font-mono text-lg font-extrabold text-primary"><Clock3 className="h-4 w-4" />{clock.questionRemainingSec}s</span>
+          <div className="p-5">
+            {/* Category and round info */}
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-primary">
+                  Round {clock.roundNumber} · Q{clock.questionIndex + 1}/{session.totalQuestions}
+                </span>
+                <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${categoryMeta.badgeBg}`}>
+                  <span>{categoryMeta.icon}</span>
+                  <span>{locale === "ar" ? categoryMeta.labelAr : categoryMeta.labelEn}</span>
+                </span>
+              </div>
+
+              {/* Countdown or Reveal badge */}
+              <div
+                className={`flex items-center gap-1 font-mono text-sm font-extrabold px-3 py-1 rounded-xl transition-all ${
+                  isRevealing
+                    ? "bg-emerald-100 text-emerald-800"
+                    : clock.questionRemainingSec <= 5
+                      ? "bg-red-100 text-danger animate-pulse"
+                      : "bg-primary/10 text-primary"
+                }`}
+              >
+                <Clock3 className="h-4 w-4" />
+                <span>{isRevealing ? `${clock.revealRemainingSec}s (Reveal)` : `${clock.questionRemainingSec}s`}</span>
+              </div>
             </div>
-            <h2 className="mt-5 text-2xl font-extrabold leading-tight text-primary-deep">{question.question}</h2>
-            <div className="mt-6 grid gap-3">
+
+            {/* Question Text */}
+            <h2 dir="auto" className="mt-4 text-xl sm:text-2xl font-extrabold leading-snug text-primary-deep">
+              {question.question}
+            </h2>
+
+            {/* Answer Options */}
+            <div className="mt-5 grid gap-3">
               {question.options.map((option, index) => {
                 const isPicked = picked === index;
-                const isOther = picked !== null && !isPicked;
+                const isRightOption = isRevealing && correctAnswer === index;
+                const isWrongPicked = isRevealing && isPicked && !isRightOption;
+
                 return (
                   <button
                     key={`${index}-${option}`}
-                    disabled={picked !== null || clock.questionRemainingSec === 0}
+                    dir="auto"
+                    disabled={picked !== null || isRevealing || clock.questionRemainingSec === 0}
                     onClick={() => answer(index)}
                     className={cn(
                       "flex min-h-16 items-center gap-3 rounded-2xl border px-4 py-3 text-left font-bold transition-all",
                       // Idle state
                       picked === null &&
+                        !isRevealing &&
                         "border-primary/15 bg-white hover:border-primary hover:bg-primary-tint active:scale-[0.99]",
-                      // Locked state while timer is running (NEUTRAL - NO RED/GREEN)
+                      // Locked state while answering (neutral purple)
                       isPicked &&
-                        !isTimerEnded &&
+                        !isRevealing &&
                         "border-primary bg-primary-tint/80 text-primary-deep ring-2 ring-primary/30 shadow-md",
-                      // Revealed after timer ends: Correct
-                      isPicked &&
-                        isTimerEnded &&
-                        result === true &&
-                        "border-green-500 bg-green-50 text-success shadow-md",
-                      // Revealed after timer ends: Incorrect
-                      isPicked &&
-                        isTimerEnded &&
-                        result === false &&
+                      // Correct option revealed
+                      isRightOption &&
+                        "border-emerald-500 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/40 shadow-md",
+                      // Picked wrong option revealed
+                      isWrongPicked &&
                         "border-red-400 bg-red-50 text-danger shadow-md",
                       // Other unpicked options
-                      isOther && "border-line opacity-40 cursor-not-allowed bg-slate-50",
+                      !isPicked &&
+                        !isRightOption &&
+                        (picked !== null || isRevealing) &&
+                        "border-line/60 opacity-40 cursor-not-allowed bg-slate-50",
                     )}
                   >
                     <span
                       className={cn(
                         "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-extrabold text-white transition-colors",
-                        isPicked && isTimerEnded && result === true
-                          ? "bg-success"
-                          : isPicked && isTimerEnded && result === false
+                        isRightOption
+                          ? "bg-emerald-600"
+                          : isWrongPicked
                             ? "bg-danger"
-                            : "bg-primary",
+                            : isPicked && !isRevealing
+                              ? "bg-primary"
+                              : "bg-primary",
                       )}
                     >
-                      {String.fromCharCode(65 + index)}
+                      {isRightOption ? "✓" : String.fromCharCode(65 + index)}
                     </span>
-                    <span className="flex-1 text-sm font-bold leading-snug">{option}</span>
 
-                    {/* While timer is running: Lock badge only */}
-                    {isPicked && !isTimerEnded && (
+                    <span className="flex-1 text-sm sm:text-base font-bold leading-snug">{option}</span>
+
+                    {/* Locked badge during answering */}
+                    {isPicked && !isRevealing && (
                       <span className="flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-extrabold text-primary">
                         <Lock className="h-3.5 w-3.5" />
                         <span>{locale === "ar" ? "مثبت" : "Locked"}</span>
                       </span>
                     )}
 
-                    {/* Revealed after timer ends */}
-                    {isPicked && isTimerEnded && result === true && (
-                      <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
+                    {/* Revealed icons */}
+                    {isRightOption && (
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
                     )}
-                    {isPicked && isTimerEnded && result === false && (
+                    {isWrongPicked && (
                       <XCircle className="h-5 w-5 text-danger shrink-0" />
                     )}
                   </button>
                 );
               })}
             </div>
-            {picked !== null && !isTimerEnded && (
+
+            {/* Status Feedback Message */}
+            {picked !== null && !isRevealing && (
               <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary-tint/50 px-4 py-2.5 text-xs font-bold text-primary">
                 <Lock className="h-4 w-4 shrink-0" />
                 <span>
@@ -259,20 +275,52 @@ function QuizInner() {
                 </span>
               </div>
             )}
-            {picked !== null && isTimerEnded && (
-              <p className="mt-4 text-center text-sm font-bold text-primary">
-                {locale === "ar"
-                  ? "انتهى الوقت · السؤال التالي سيبدأ تلقائياً"
-                  : "Time's up · Next question starts automatically."}
-              </p>
+
+            {/* Intermission Result Announcement */}
+            {isRevealing && (
+              <div
+                className={cn(
+                  "mt-4 rounded-xl border p-3.5 text-center text-sm font-black shadow-sm animate-in fade-in zoom-in-95 duration-200",
+                  isCorrectPick
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                    : picked !== null
+                      ? "border-red-300 bg-red-50 text-red-900"
+                      : "border-amber-300 bg-amber-50 text-amber-900",
+                )}
+              >
+                {isCorrectPick ? (
+                  <p>
+                    🎉 {locale === "ar" ? "إجابة صحيحة! أحسنت (+100 نقطة)" : "Correct answer! (+100 pts)"}
+                  </p>
+                ) : picked !== null ? (
+                  <p>
+                    ❌ {locale === "ar"
+                      ? `إجابة خاطئة · الإجابة الصحيحة هي: (${correctAnswer !== null ? String.fromCharCode(65 + correctAnswer) : "—"})`
+                      : `Incorrect · The correct answer was (${correctAnswer !== null ? String.fromCharCode(65 + correctAnswer) : "—"})`}
+                  </p>
+                ) : (
+                  <p>
+                    ⏰ {locale === "ar"
+                      ? `انتهى الوقت · الإجابة الصحيحة هي: (${correctAnswer !== null ? String.fromCharCode(65 + correctAnswer) : "—"})`
+                      : `Time's up · The correct answer was (${correctAnswer !== null ? String.fromCharCode(65 + correctAnswer) : "—"})`}
+                  </p>
+                )}
+                <p className="mt-1 text-xs font-semibold opacity-75">
+                  {locale === "ar" ? "السؤال التالي سيبدأ خلال ثوانٍ..." : "Next question starts in a few seconds..."}
+                </p>
+              </div>
             )}
           </div>
         </Card>
       ) : (
-        <Card className="card-pad bg-white/92 py-14 text-center shadow-xl shadow-primary/10">
-          <Sparkles className="mx-auto h-10 w-10 text-primary" />
-          <h2 className="mt-4 text-2xl font-extrabold text-primary-deep">{clock?.ended ? "Quiz stopped" : "Waiting for the quiz…"}</h2>
-          <p className="mt-2 text-sm text-ink-soft">Your score: {myPoints} points</p>
+        <Card className="p-8 text-center bg-white/92 shadow-xl shadow-primary/10">
+          <Sparkles className="mx-auto h-12 w-12 text-primary" />
+          <h2 className="mt-4 text-2xl font-extrabold text-primary-deep">
+            {clock?.ended ? (locale === "ar" ? "انتهت جولة الكويز" : "Quiz Round Ended") : (locale === "ar" ? "بانتظار بدء السؤال..." : "Waiting for next question...")}
+          </h2>
+          <p className="mt-2 text-sm text-ink-soft">
+            {locale === "ar" ? "تابع الشاشة الكبيرة للمزيد من التفاصيل" : "Look at the main screen for details."}
+          </p>
         </Card>
       )}
     </div>
@@ -280,6 +328,9 @@ function QuizInner() {
 }
 
 export default function QuizPage() {
-  return <UserShell><Suspense fallback={<FullPageLoader />}><QuizInner /></Suspense></UserShell>;
+  return (
+    <Suspense fallback={<FullPageLoader />}>
+      <QuizInner />
+    </Suspense>
+  );
 }
-

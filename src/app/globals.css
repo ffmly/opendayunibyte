@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Cairo:wght@400;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -39,9 +40,9 @@
   --color-warning: var(--color-warning);
   --color-danger: var(--color-danger);
 
-  --font-sans: var(--font-unibyte-display), var(--font-unibyte-sans);
+  --font-sans: var(--font-unibyte-arabic), 'Tajawal', var(--font-unibyte-sans), var(--font-unibyte-display), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: var(--font-unibyte-mono);
-  --font-display: var(--font-unibyte-display), var(--font-unibyte-sans);
+  --font-display: var(--font-unibyte-arabic), 'Tajawal', var(--font-unibyte-display), var(--font-unibyte-sans), sans-serif;
 }
 
 html {
@@ -55,6 +56,15 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/* Beautiful modern Arabic typography for all Arabic content across the app */
+html[lang="ar"],
+[dir="rtl"],
+:lang(ar),
+.font-arabic {
+  font-family: var(--font-unibyte-arabic), 'Tajawal', 'Cairo', var(--font-unibyte-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: normal;
 }
 
 .open-day-bg {
