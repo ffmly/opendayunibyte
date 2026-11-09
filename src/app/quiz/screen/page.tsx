@@ -99,10 +99,35 @@ export default function QuizScreen() {
   useEffect(() => {
     if (!questionId) return;
     let cancelled = false;
-    call<{ questionId: string }, QuestionPublic>("getQuizDisplayQuestion", { questionId })
-      .then((result) => !cancelled && setQuestionState({ id: questionId, value: result }))
-      .catch(() => {});
-    return () => { cancelled = true; };
+
+    const fetchQuestion = () => {
+      call<{ questionId: string }, QuestionPublic>("getQuizDisplayQuestion", { questionId })
+        .then((result) => {
+          if (!cancelled && result) {
+            setQuestionState({ id: questionId, value: result });
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchQuestion();
+
+    // Auto-retry every 2.5s if question hasn't loaded yet (handles WiFi drops / transient network errors)
+    const retryTimer = window.setInterval(() => {
+      if (!cancelled) {
+        setQuestionState((prev) => {
+          if (!prev || prev.id !== questionId) {
+            fetchQuestion();
+          }
+          return prev;
+        });
+      }
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(retryTimer);
+    };
   }, [questionId]);
 
   // Audio Effects Triggering

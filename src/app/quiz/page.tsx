@@ -78,11 +78,37 @@ function QuizInner() {
   useEffect(() => {
     if (!questionId) return;
     let cancelled = false;
-    call<{ questionId: string }, QuestionPublic>("getQuizDisplayQuestion", { questionId })
-      .then((value) => !cancelled && setQuestionState({ id: questionId, value }))
-      .catch(() => !cancelled && setError(t.errors.generic));
-    return () => { cancelled = true; };
-  }, [questionId, t.errors.generic]);
+
+    const fetchQuestion = () => {
+      call<{ questionId: string }, QuestionPublic>("getQuizDisplayQuestion", { questionId })
+        .then((value) => {
+          if (!cancelled && value) {
+            setQuestionState({ id: questionId, value });
+            setError("");
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchQuestion();
+
+    // Auto-retry every 2.5s if question hasn't loaded yet (recovers from WiFi blinks)
+    const retryTimer = window.setInterval(() => {
+      if (!cancelled) {
+        setQuestionState((prev) => {
+          if (!prev || prev.id !== questionId) {
+            fetchQuestion();
+          }
+          return prev;
+        });
+      }
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(retryTimer);
+    };
+  }, [questionId]);
 
   const answer = useCallback(async (answerIndex: number) => {
     if (!sessionId || !questionId || !questionKey || answersHistory[questionKey] || clock?.ended || clock?.isRevealing) return;

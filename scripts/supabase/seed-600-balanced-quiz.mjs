@@ -1,5 +1,4 @@
 import nextEnv from "@next/env";
-import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import pg from "pg";
 
@@ -112,7 +111,7 @@ async function seed() {
       answerDistribution[correctIndex]++;
 
       questionsToInsert.push({
-        id: randomUUID(),
+        id: `${cat.key}-${String(itemIdx + 1).padStart(3, "0")}`,
         question: item.q.trim(),
         options: shuffledOptions,
         correct_answer: correctIndex,
@@ -160,6 +159,9 @@ async function seed() {
 
   const totalRes = await pgPool.query("SELECT COUNT(*) as total FROM public.quiz_questions");
   console.log(`Total live questions in database: ${totalRes.rows[0].total}`);
+
+  console.log("Ending any existing stale quiz sessions...");
+  await pgPool.query("UPDATE public.quiz_sessions SET status = 'ended' WHERE status != 'ended'");
 
   await pgPool.end();
 }

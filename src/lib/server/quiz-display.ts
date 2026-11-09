@@ -14,8 +14,19 @@ export async function getQuizDisplayQuestion(data: unknown) {
     z.object({ questionId: z.string().min(1) }),
     data,
   );
-  const snap = await db.collection("quizQuestions").doc(questionId).get();
-  if (!snap.exists) apiError("not-found", "Question not found");
+  let snap = await db.collection("quizQuestions").doc(questionId).get();
+  if (!snap.exists) {
+    // Graceful fallback to avoid TV screen going blank if a question ID was rotated or missing
+    const fallbackSnap = await db
+      .collection("quizQuestions")
+      .where("active", "==", true)
+      .limit(1)
+      .get();
+    if (fallbackSnap.empty) {
+      apiError("not-found", "Question not found");
+    }
+    snap = fallbackSnap.docs[0];
+  }
   const q = snap.data()!;
   return {
     question: String(q.question ?? ""),
